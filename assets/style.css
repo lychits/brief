@@ -543,3 +543,4 @@ body.in-cab .top{background:rgba(245,245,244,.9)}
 }
 @media (prefers-reduced-motion:reduce){.pill i,.skel,.jd{animation:none}}
 .cab-login h1{margin-bottom:14px}
+.cab-btn[hidden]{display:none}
