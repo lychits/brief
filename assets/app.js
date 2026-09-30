@@ -828,6 +828,7 @@ const CT = {
 };
 Object.assign(T, CT);
 T.cabGo = {ru:'Открыть мои заявки',en:'Open my requests'};
+T.heldP = {ru:'Рабочие файлы DXF ({n} шт.) откроются после согласования PDF — кнопка «Принять Test-fit».',en:'Working DXF files ({n}) unlock once the PDF is approved — use “Accept Test-fit”.'};
 T.doneK = {ru:'Заявка передана в работу — Claude возьмёт её в течение часа. Статус, файлы и замечания — в «Мои заявки», о готовности придёт письмо.',en:'Your request is queued — Claude will pick it up within an hour. Status, files and comments are in “My requests”; you’ll get an email when it’s ready.'};
 
 const setHash = h => { try { history.replaceState(null, '', location.pathname + location.search + h); } catch(e){} };
@@ -842,7 +843,7 @@ function demoJobs(){
   const h = n => new Date(Date.now() - n*3600e3).toISOString();
   return [
     { id:'TF-0007', status:'ready', version:2, object:'БЦ «Сидней Сити», 15 этаж', mode:'расширенный', created:h(30), updated:h(1),
-      results:[{v:2, files:[{id:'d1',name:'TF-0007_v2_test-fit.pdf',size:4.2e6,mime:'application/pdf'},{id:'d2',name:'TF-0007_v2_спецификация.pdf',size:.6e6,mime:'application/pdf'}]},
+      results:[{v:2, files:[{id:'d1',name:'TF-0007_v2_test-fit.pdf',size:4.2e6,mime:'application/pdf'},{id:'d2',name:'TF-0007_v2_спецификация.pdf',size:.6e6,mime:'application/pdf'}], held:1},
                {v:1, files:[{id:'d3',name:'TF-0007_v1_test-fit.pdf',size:4.0e6,mime:'application/pdf'}]}],
       events:[{at:h(30),who:'Анна',type:'created',v:0,text:'',files:[]},{at:h(29),who:'Claude',type:'taken',v:0,text:'',files:[]},
               {at:h(27),who:'Claude',type:'result',v:1,text:'Вариант 1: 186 рабочих мест, 9 м² NIA/чел., 6 переговорных, 4 кабинета. Перегородки к фасаду — только в импосты.',files:['TF-0007_v1_test-fit.pdf']},
@@ -958,7 +959,7 @@ function jobDetail(x){
     <p class="jd-hint">${t('hint_'+x.status)}</p>
 
     <h3>${t('res')}</h3>
-    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}</div><ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul></div>`
+    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}</div><ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul>${last.held ? `<p class="held">${t('heldP').replace('{n}', last.held)}</p>` : ''}</div>`
            : `<p class="muted">${t('noRes')}</p>`}
     ${older.length ? `<details class="older"><summary>${t('prevV')} (${older.length})</summary>${older.map(r=>`<div class="vcard old"><div class="vh">${t('ver')} ${r.v}</div><ul class="files">${r.files.map(f=>fileRow(x,f)).join('')}</ul></div>`).join('')}</details>` : ''}
 
