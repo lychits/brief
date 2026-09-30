@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pridex · Бриф на Test-fit офиса</title>
+<meta name="description" content="Бриф на Test-fit офисного пространства: заполните анкету и приложите планировку shell&core.">
+<link rel="icon" href="assets/pridex-mark.svg" type="image/svg+xml">
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#" data-go="intro" aria-label="Pridex">
+    <img src="assets/pridex-mark.svg" alt="" class="brand-mark">
+    <img src="assets/pridex-wordmark.svg" alt="Pridex" class="brand-word">
+  </a>
+  <div class="top-right">
+    <span class="save-state" id="saveState" aria-live="polite"></span>
+    <button type="button" class="cab-btn" id="cabBtn" data-act="cab" hidden>Мои заявки</button>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="ru" class="on">RU</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+  <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+</header>
+
+<main id="app" class="app"></main>
+
+<footer class="foot">
+  <span>© Pridex</span>
+  <span id="footNote"></span>
+</footer>
+
+<script>
+/* Адрес веб-приложения Google Apps Script (см. apps-script/README.md).
+   Пока пусто — бриф работает в демо-режиме: сохраняет brief.md на устройство. */
+window.BRIEF_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyloR90Hhsa5NPL4U53I5WYN0PJdqkeCAUBZYUqvm-fyU7anlhcHnphv6okr3BO52V9OQ/exec';
+</script>
+<script src="assets/app.js"></script>
+</body>
+</html>
