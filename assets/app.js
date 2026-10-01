@@ -323,11 +323,7 @@ function fieldHTML(f){
       return `<div class="f" data-f="${f.id}">${lbl}${hint}<div class="tbl">${head}${body}</div><button type="button" class="add">${t('add')}</button>${f.sumCol?`<div class="tsum">${t('total')}: <b>${sum}</b></div>`:''}</div>`;
     }
     case 'file': {
-      const list = (FILES[f.id]||[]).map((fl,i) => {
-        const ext = (fl.name.split('.').pop()||'').slice(0,4);
-        const big = fl.size > MAXMB*1048576;
-        return `<li><span class="ext">${esc(ext)}</span><span class="nm">${esc(fl.name)}${big?`<span class="warn">${t('tooBig')}</span>`:''}</span><span class="sz">${fmtSize(fl.size)}</span><button type="button" data-rm="${i}" aria-label="×">×</button></li>`;
-      }).join('');
+      const list = fileListHtml(f.id);
       return `<div class="f" data-f="${f.id}">${lbl}${hint}<label class="drop"><input type="file" ${f.multiple?'multiple':''} ${f.accept?`accept="${f.accept}"`:''}><b>${t('dropB')}</b><span>${t('dropS')}</span></label><ul class="files">${list}</ul>${err}</div>`;
     }
     case 'note':
@@ -589,6 +585,20 @@ function validateStep(i, mark=true){
 function fieldById(id){ for (const s of STEPS) for (const f of s.fields) if (f.id===id) return f; return null; }
 function go(i){ const n = steps().length; if (i < 0 || i >= n) return; S.step = i; S.maxStep = Math.max(S.maxStep, i); save(); render(); if (window.scrollY > 0) window.scrollTo({top:0, behavior:'smooth'}); }
 function rerenderKeepFocus(){ refresh(); }
+function fileListHtml(id){
+  return (FILES[id]||[]).map((fl,i) => {
+    const ext = (fl.name.split('.').pop()||'').slice(0,4);
+    const big = fl.size > MAXMB*1048576;
+    return `<li><span class="ext">${esc(ext)}</span><span class="nm">${esc(fl.name)}${big?`<span class="warn">${t('tooBig')}</span>`:''}</span><span class="sz">${fmtSize(fl.size)}</span><button type="button" data-rm="${i}" aria-label="×">×</button></li>`;
+  }).join('');
+}
+function updateFiles(id){          // список файлов перерисовывается на месте (refresh() его не трогает)
+  app.querySelectorAll(`[data-f="${id}"]`).forEach(el => {
+    const ul = el.querySelector('ul.files'); if (ul) ul.innerHTML = fileListHtml(id);
+    if ((FILES[id]||[]).some(x => x.size <= MAXMB*1048576)){ el.classList.remove('bad'); const er = el.querySelector('.err'); if (er) er.textContent = ''; }
+  });
+  refresh();
+}
 
 document.addEventListener('click', e => {
   const b = e.target.closest('button, a[data-go]'); if (!b) return;
@@ -623,7 +633,7 @@ document.addEventListener('click', e => {
     if (b.classList.contains('add')){ rows.push({}); S.a[f.id]=rows; save(); rerenderKeepFocus(); const ins = fEl.parentElement.querySelectorAll(`[data-f="${f.id}"] .tr:last-child input`); if (ins[0]) ins[0].focus(); return; }
     if (b.dataset.del != null){ rows.splice(+b.dataset.del,1); S.a[f.id]=rows.length?rows:[{}]; save(); rerenderKeepFocus(); return; }
   }
-  if (f.type==='file' && b.dataset.rm != null){ FILES[f.id].splice(+b.dataset.rm,1); rerenderKeepFocus(); return; }
+  if (f.type==='file' && b.dataset.rm != null){ FILES[f.id].splice(+b.dataset.rm,1); updateFiles(f.id); return; }
 });
 function confirmReset(){ return true; }
 
@@ -658,7 +668,7 @@ document.addEventListener('change', e => {
 function addFiles(id, list){
   FILES[id] = (FILES[id]||[]).concat(Array.from(list||[]));
   const f = fieldById(id); if (!f.multiple) FILES[id] = FILES[id].slice(-1);
-  rerenderKeepFocus();
+  updateFiles(id);
 }
 ['dragenter','dragover'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest && e.target.closest('.drop'); if (d){ e.preventDefault(); d.classList.add('over'); } }));
 ['dragleave','drop'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest && e.target.closest('.drop'); if (d){ e.preventDefault(); d.classList.remove('over'); if (ev==='drop') addFiles(d.closest('[data-f]').dataset.f, e.dataTransfer.files); } }));
