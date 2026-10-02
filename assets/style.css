@@ -722,3 +722,52 @@ body[data-view="sending"] .app,body[data-view="done"] .app{max-width:520px;margi
 .composer .files.att{margin:4px 4px 8px}
 @media (min-width:901px){ .composer{bottom:0} body.has-tabs .cab-detail{max-height:calc(100vh - 190px)} }
 body[data-mode="t"] .tl,body[data-mode="t"] .card-no{display:none}
+
+/* финальный альбом: стандарт / опции */
+body.alb-on{overflow:hidden}
+.alb-link{display:inline-block;margin:2px 0 10px;font-size:13px;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;background:none;border:0;padding:0;cursor:pointer}
+#albLayer .al-bg{position:fixed;inset:0;background:rgba(10,10,10,.42);z-index:60;backdrop-filter:blur(2px)}
+#albLayer .al{position:fixed;z-index:61;left:50%;top:50%;transform:translate(-50%,-50%);width:min(1040px,calc(100vw - 32px));max-height:calc(100dvh - 32px);background:#fff;border-radius:18px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.al-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 24px 12px;border-bottom:1px solid var(--line)}
+.al-h h2{margin:4px 0 0;font:600 20px/1.25 var(--display);letter-spacing:-.01em}
+.al-h .jid{font-size:12px;color:var(--mute)}
+.al-x{border:0;background:var(--soft);width:34px;height:34px;border-radius:50%;font-size:22px;line-height:1;cursor:pointer;color:var(--ink);flex:0 0 auto}
+.al-body{overflow:auto;padding:16px 24px 8px;-webkit-overflow-scrolling:touch}
+.al-body h3{margin:18px 0 10px;font:600 13px/1 var(--font);text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.al-mode{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.al-mode button{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1.5px solid var(--line-2);background:#fff;border-radius:14px;padding:14px 16px;cursor:pointer}
+.al-mode button i{flex:0 0 18px;height:18px;border-radius:50%;border:1.5px solid var(--line-2);margin-top:2px;position:relative}
+.al-mode button.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.al-mode button.on i{border-color:var(--ink)}.al-mode button.on i::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--ink)}
+.al-mode b{display:block;font-size:15px}.al-mode small{color:var(--ink-2);font-size:13px}
+.al-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.al-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;transition:border-color .2s,box-shadow .2s}
+.al-card.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.al-card.ro .al-t{opacity:.85}
+.al-img{display:block;width:100%;aspect-ratio:16/9;border:0;padding:0;background:var(--soft);cursor:zoom-in;position:relative}
+.al-img img{width:100%;height:100%;object-fit:cover;display:block}
+.al-zoom{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,.92);border-radius:8px;padding:1px 7px;font-size:14px;color:var(--ink)}
+.al-t{display:flex;gap:10px;align-items:flex-start;padding:10px 12px 12px}
+.al-t b{display:block;font-size:14px;line-height:1.3}.al-t small{display:block;color:var(--ink-2);font-size:12.5px;line-height:1.4;margin-top:3px}
+.al-inc{flex:0 0 20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;display:grid;place-items:center;margin-top:1px}
+.al-chk{flex:0 0 22px;height:22px;border-radius:6px;border:1.5px solid var(--line-2);background:#fff;cursor:pointer;padding:0;margin-top:1px;display:grid;place-items:center}
+.al-chk[aria-checked="true"]{background:var(--ink);border-color:var(--ink)}
+.al-chk[aria-checked="true"] i{width:10px;height:6px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) translate(1px,-1px)}
+.al-note{color:var(--ink-2);font-size:13px;margin:12px 0 6px}
+.al-f{display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:14px 24px;border-top:1px solid var(--line);background:#fff}
+.al-sum{margin-right:auto;font-size:14px;color:var(--ink-2)}
+.al-f .btn{background:var(--ink);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:600;font-size:15px;cursor:pointer}
+.al-f .btn[disabled]{opacity:.35;cursor:default}
+.al-zl{position:fixed;inset:0;z-index:70;background:rgba(10,10,10,.86);display:grid;place-items:center;padding:24px;cursor:zoom-out}
+.al-zl figure{margin:0;max-width:min(1280px,100%)}.al-zl img{width:100%;height:auto;border-radius:10px;background:#fff;display:block;max-height:calc(100dvh - 90px);object-fit:contain}
+.al-zl figcaption{color:#fff;text-align:center;font-size:14px;margin-top:10px}
+.al-zl .al-x{position:fixed;top:16px;right:16px;background:#fff}
+.pill.p-album{background:var(--soft-2);border-color:var(--ink);color:var(--ink)}
+@media (max-width:640px){
+  #albLayer .al{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:92dvh;border-radius:18px 18px 0 0}
+  .al-h,.al-body,.al-f{padding-left:16px;padding-right:16px}
+  .al-mode{grid-template-columns:1fr}
+  .al-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .al-t{padding:8px 10px 10px}.al-t small{display:none}
+  .al-f{flex-wrap:wrap}.al-f .btn{flex:1}
+}

@@ -1053,11 +1053,13 @@ const CT = {
   e_created:{ru:'Заявка создана',en:'Request created'}, e_taken:{ru:'Взята в работу',en:'Taken into work'}, e_result:{ru:'Готова версия',en:'Version ready'},
   e_question:{ru:'Вопрос',en:'Question'}, e_comment:{ru:'Замечания',en:'Comments'}, e_accepted:{ru:'Принято',en:'Accepted'}, e_error:{ru:'Ошибка',en:'Error'},
   e_answer:{ru:'Ответ'}, e_note:{ru:'Дополнение'}, e_info:{ru:'Сообщение'}, e_meta:{ru:'Объект определён'},
-  tr1:{ru:'Получена',en:'Received'}, tr2:{ru:'В работе',en:'In progress'}, tr3:{ru:'Готово',en:'Ready'}, tr4:{ru:'Принято',en:'Accepted'}
+  tr1:{ru:'Получена',en:'Received'}, tr2:{ru:'В работе',en:'In progress'}, tr3:{ru:'Готово',en:'Ready'}, tr4:{ru:'Принято',en:'Accepted'},
+  s_album:{ru:'Финальный альбом',en:'Final album'}, e_album:{ru:'Заказан финальный альбом',en:'Final album ordered'}, e_final:{ru:'Финальный альбом',en:'Final album'},
+  albLink:{ru:'Что входит в альбом',en:'What the album includes'}
 };
 Object.assign(T, CT);
 T.cabGo = {ru:'Открыть мои заявки',en:'Open my requests'};
-T.heldP = {ru:'Рабочие файлы DXF ({n} шт.) откроются после согласования PDF — кнопка «Принять Test-fit».',en:'Working DXF files ({n}) unlock once the PDF is approved — use “Accept Test-fit”.'};
+T.heldP = {ru:'DXF ({n} шт.) — опция финального альбома: при «Принять Test-fit» выберите «С опциями» и отметьте DXF.',en:'DXF ({n}) is a final-album option: on “Accept Test-fit” choose “With options” and tick DXF.'};
 T.doneK = {ru:'Заявка передана в работу — Claude возьмёт её в течение часа. Статус, файлы и замечания — в «Мои заявки», о готовности придёт письмо.',en:'Your request is queued — Claude will pick it up within an hour. Status, files and comments are in “My requests”; you’ll get an email when it’s ready.'};
 
 const setHash = h => {};          // адрес и история ведёт syncHistory()
@@ -1068,8 +1070,8 @@ function fillObjects(){
 }
 const isDemo = () => !ENDPOINT();
 const hasCab = () => !!KEYV || isDemo();
-const ACTION = ['ready','question'], WORK = ['new','work','feedback'];
-const stage = s => ({new:0, work:1, feedback:1, ready:2, question:2, accepted:3, error:1}[s] ?? 0);
+const ACTION = ['ready','question'], WORK = ['new','work','feedback','album'];
+const stage = s => ({new:0, work:1, feedback:1, ready:2, question:2, album:3, accepted:3, error:1}[s] ?? 0);
 const fdt = iso => { try { return new Date(iso).toLocaleString(S.lang==='ru'?'ru-RU':'en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); } catch(e){ return ''; } };
 
 function demoJobs(){
@@ -1179,13 +1181,13 @@ function jobDetail(x){
   const res = x.results || [], last = res[0], older = res.slice(1);
   const isQ = x.status === 'question';
   const att = CAB.att[x.id] || [];
-  const SYS = ['created','taken','accepted','error','meta'];
+  const SYS = ['created','taken','accepted','album','error','meta'];
   const me = CAB.name || '';
   const bub = e => {
     const files = (e.files||[]).length ? `<div class="evf">${e.files.map((n,i)=>(e.refs||[])[i] ? `<button type="button" class="evdl" data-act="cabDl" data-job="${esc(x.id)}" data-ref="${esc(e.refs[i])}" data-name="${esc(n)}">${/\.(png|jpe?g|webp|heic)$/i.test(n)?'🖼':'📎'} ${esc(n)}</button>` : `<span>${esc(n)}</span>`).join('')}</div>` : '';
-    if (SYS.includes(e.type)) return `<li class="sys"><span>${esc(t('e_'+e.type))}${e.type==='meta' && e.text ? ': ' + esc(e.text) : ''} · ${fdt(e.at)}</span>${e.type==='error' && e.text ? `<p>${esc(e.text)}</p>` : ''}</li>`;
+    if (SYS.includes(e.type)) return `<li class="sys"><span>${esc(t('e_'+e.type))}${e.type==='meta' && e.text ? ': ' + esc(e.text) : ''} · ${fdt(e.at)}</span>${(e.type==='error' || e.type==='album' || e.type==='accepted') && e.text ? `<p>${esc(e.text)}</p>` : ''}</li>`;
     const mine = e.who !== 'Claude';
-    const head = e.type === 'result' ? `${t('e_result')} v${e.v}` : e.type === 'question' ? t('e_question') : e.type === 'comment' ? `${t('e_comment')} к v${e.v}` : '';
+    const head = e.type === 'result' ? `${t('e_result')} v${e.v}` : e.type === 'final' ? `📘 ${t('e_final')} v${e.v}` : e.type === 'question' ? t('e_question') : e.type === 'comment' ? `${t('e_comment')} к v${e.v}` : '';
     return `<li class="msg ${mine ? 'mine' : 'cl'} t-${e.type}">${mine ? '' : '<span class="av c">C</span>'}<div class="bb">${head ? `<b>${esc(head)}</b>` : ''}${e.text ? `<p>${esc(e.text).replace(/\n/g,'<br>')}</p>` : ''}${files}<small>${mine && e.who !== me ? esc(e.who) + ' · ' : ''}${fdt(e.at)}${e.via==='Telegram' ? ' · <span class="via">Telegram</span>' : ''}</small></div></li>`;
   };
   return `<article class="jd">
@@ -1193,7 +1195,7 @@ function jobDetail(x){
     <div class="jd-top"><span class="jid">${esc(x.id)} · ${esc(x.mode)}</span>${pill(x.status)}</div>
     <h2>${esc(x.title || x.object)}</h2>
     ${track(x.status)}
-    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}${x.status==='ready' ? `<button class="btn ghost sm" data-act="cabAccept" data-job="${esc(x.id)}">✓ ${t('accept')}</button>` : ''}</div><ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul>${last.held ? `<p class="held">${t('heldP').replace('{n}', last.held)}</p>` : ''}</div>` : ''}
+    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}${x.status==='ready' ? `<button class="btn ghost sm" data-act="cabAccept" data-job="${esc(x.id)}">✓ ${t('accept')}</button>` : ''}</div>${x.status==='ready' ? `<button type="button" class="link alb-link" data-alb="examples">${t('albLink')} →</button>` : ''}<ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul>${last.held ? `<p class="held">${t('heldP').replace('{n}', last.held)}</p>` : ''}</div>` : ''}
     ${older.length ? `<details class="older"><summary>${t('prevV')} (${older.length})</summary>${older.map(r=>`<div class="vcard old"><div class="vh">${t('ver')} ${r.v}</div><ul class="files">${r.files.map(f=>fileRow(x,f)).join('')}</ul></div>`).join('')}</details>` : ''}
     <h3>${t('chatH')}</h3>
     <ol class="chat">${(x.events||[]).map(bub).join('')}</ol>
@@ -1222,7 +1224,7 @@ async function cabDownload(b){
   b.disabled = false; b.innerHTML = old;
 }
 
-async function cabSend(id, accept){
+async function cabSend(id, accept, opts){
   const x = CAB.jobs.find(j=>j.id===id); if (!x) return;
   const text = (CAB.drafts[id]||'').trim(), att = CAB.att[id] || [];
   if (!accept && !text && !att.length){ const ta = $('#cabText'); if (ta){ ta.classList.add('bad'); ta.focus(); } return; }
@@ -1230,20 +1232,21 @@ async function cabSend(id, accept){
   const who = CAB.name || 'Сотрудник', at = new Date().toISOString();
   try {
     if (!isDemo()){
-      if (accept) await post({ action:'accept', key:KEYV, id });
+      if (accept) await post({ action:'accept', key:KEYV, id, opts: opts || [] });
       else {
         const files = []; for (const f of att) if (f.size <= MAXMB*1048576) files.push({ name:f.name, mime:f.type||'application/octet-stream', data: await b64(f) });
         await post({ action:'comment', key:KEYV, id, text, files });
       }
     }
-    if (accept){ x.status = 'accepted'; x.events.push({at, who, type:'accepted', v:x.version, text:'', files:[]}); }
+    const alb = accept && (opts || []).some(k => k !== 'dxf');
+    if (accept){ x.status = alb ? 'album' : 'accepted'; x.events.push({at, who, type: alb ? 'album' : 'accepted', v:x.version, text: (opts||[]).length ? albSummary(opts) : 'Стандарт', files:[]}); }
     else {
       const type = x.status === 'question' ? 'answer' : !x.version ? 'note' : 'comment';
       x.status = type === 'answer' ? (x.version ? 'feedback' : 'new') : type === 'comment' ? 'feedback' : (x.status === 'error' ? 'new' : x.status);
       x.events.push({at, who, type, v:x.version, text, files:att.map(f=>f.name)}); CAB.drafts[id] = ''; CAB.att[id] = [];
     }
     x.updated = at;
-    toast(accept ? t('accOk') : t('sentOk'));
+    toast(accept ? (alb ? 'Финальный альбом заказан — Claude подготовит опции' : t('accOk')) : t('sentOk'));
     if (!isDemo()) cabLoad(true);
   } catch(err){ btns.forEach(b=>b.disabled=false); toast(t('loadErr')); }
 }
@@ -1260,7 +1263,7 @@ function cabClick(b, e){
   if (act==='cabNew'){ leaveCab(); view='intro'; render(); window.scrollTo(0,0); return true; }
   if (act==='cabDl'){ cabDownload(b); return true; }
   if (act==='cabSend'){ cabSend(b.dataset.job, false); return true; }
-  if (act==='cabAccept'){ cabSend(b.dataset.job, true); return true; }
+  if (act==='cabAccept'){ albOpen(b.dataset.job); return true; }
   if (act==='cabRm'){ (CAB.att[CAB.sel]||[]).splice(+b.dataset.i,1); renderCab(true); return true; }
   if (act==='cabLogin'){ e.preventDefault(); const v = ($('#cabKey')||{}).value||''; if (v.trim()){ KEYV = v.trim(); kstore.set(KEYV); CAB.err=''; CAB.jobs=null; cabLoad(); } return true; }
   if (act==='cabLogout'){ KEYV=''; kstore.set(''); nstore.set(''); CAB.name=''; CAB.jobs=null; CAB.sel=null; leaveCab(); view='pin'; render(); return true; }
@@ -1273,6 +1276,80 @@ document.addEventListener('keydown', e => { if (e.target.id==='cabText' && e.key
 document.addEventListener('change', e => { if (e.target.id==='cabFile'){ const id = CAB.sel; CAB.att[id] = (CAB.att[id]||[]).concat(Array.from(e.target.files||[])); renderCab(true); } }, true);
 document.addEventListener('submit', e => { if (e.target.closest('.login')) e.preventDefault(); });
 window.addEventListener('hashchange', () => { const m = location.hash.match(/^#cab(?:\/(.+))?$/); if (m && hasCab()) openCab(m[1] ? decodeURIComponent(m[1]) : null); else if (location.hash === '#me' && hasCab()){ leaveCab(); view = 'me'; render(); } });
+
+
+/* ---------- финальный альбом: стандарт или с опциями (примеры каждого листа) ---------- */
+const ALB_STD = [
+  ['std_plan','Планировочное решение','Расстановка мебели и помещений, экспликация, места и м² на место.'],
+  ['std_depts','Размещение подразделений','Где сидит каждый отдел: цвет и число мест по подразделениям.'],
+  ['std_zones','Функциональное зонирование','Open space, кабинеты, переговорные, сервис — площади по зонам.'],
+  ['std_q','Допущения и вопросы','Что принято по умолчанию и что нужно подтвердить заказчику.']];
+const ALB_OPT = [
+  ['sc','Анализ shell&core и карта примыканий','Фасад, импосты, колонны, ядро, выходы — куда могут приходить перегородки.'],
+  ['spec','Спецификация мест и помещений','Таблица рабочих мест и помещений, построчная сверка с ТЗ.'],
+  ['evac','Пути эвакуации','Путь от каждого рабочего места до лестниц, длины и нормативы.'],
+  ['pk','Зоны действия пожарных кранов','Охват ПК, места без двух струй, предложения по новым ПК.'],
+  ['shadow','План расстановки с тенями','Подробный презентационный план с мягкими тенями.'],
+  ['axo','Аксонометрия этажа','Объёмный вид без потолка — белая модель.'],
+  ['axoz','Аксонометрия по зонам','Объёмный вид с цветными функциональными зонами.'],
+  ['frag','Фрагмент «план + аксонометрия»','Ключевая зона крупно: план и 3D рядом.'],
+  ['light','Естественный свет','Рендер сверху: свет от фасада, светлые и тёмные зоны.'],
+  ['dxf','DXF планировочного решения','Чертёж для проектировщика: слои, блоки, номера мест. Откроется сразу.']];
+const ALB = { open:false, id:null, mode:'std', sel:[], zoom:null };
+const albImg = (k, big) => `assets/opt/${k}${big ? '' : '_s'}.jpg?v=1`;
+const albName = k => (ALB_OPT.find(o => o[0] === k) || [k, k])[1];
+const albSummary = o => 'Стандарт + ' + o.map(albName).join('; ');
+let albLayer = null;
+function albOpen(id){ Object.assign(ALB, { open:true, id: id || null, mode:'std', sel:[], zoom:null }); renderAlbum(); }
+function albClose(){ ALB.open = false; ALB.zoom = null; renderAlbum(); if (location.hash === '#album') try { history.replaceState(history.state, '', location.pathname + location.search); } catch(e){} }
+function renderAlbum(){
+  if (!albLayer){ albLayer = document.createElement('div'); albLayer.id = 'albLayer'; document.body.appendChild(albLayer); }
+  document.body.classList.toggle('alb-on', ALB.open);
+  if (!ALB.open){ albLayer.innerHTML = ''; return; }
+  const x = ALB.id && (CAB.jobs || []).find(j => j.id === ALB.id), pick = !!x;
+  const card = ([k, n, d], opt) => {
+    const on = ALB.sel.includes(k), act = pick && opt && ALB.mode === 'opt';
+    return `<div class="al-card${on ? ' on' : ''}${opt && !act ? ' ro' : ''}">
+      <button type="button" class="al-img" data-alb="zoom" data-k="${k}" aria-label="Пример: ${esc(n)}"><img src="${albImg(k)}" alt="" loading="lazy"><span class="al-zoom">⤢</span></button>
+      <div class="al-t">${act ? `<button type="button" class="al-chk" data-alb="tog" data-k="${k}" role="checkbox" aria-checked="${on}"><i></i></button>` : opt ? '' : '<span class="al-inc">✓</span>'}
+        <div><b>${esc(n)}</b><small>${esc(d)}</small></div></div></div>`;
+  };
+  const extra = ALB.sel.filter(k => k !== 'dxf').length;
+  const go = ALB.mode === 'std' ? `Принять v${x ? x.version : ''} · стандарт` : ALB.sel.length ? `Принять и заказать альбом · ${ALB.sel.length} опц.` : 'Отметьте опции';
+  albLayer.innerHTML = `<div class="al-bg" data-alb="close"></div>
+  <div class="al" role="dialog" aria-modal="true" aria-label="Финальный альбом">
+    <div class="al-h"><div><span class="jid">${x ? esc(x.id) + ' · v' + x.version : 'TestFit'}</span><h2>${pick ? 'Принять и выпустить финальный альбом' : 'Финальный альбом: стандарт и опции'}</h2></div>
+      <button type="button" class="al-x" data-alb="close" aria-label="Закрыть">×</button></div>
+    <div class="al-body">
+      ${pick ? `<div class="al-mode" role="radiogroup">
+        <button type="button" role="radio" aria-checked="${ALB.mode==='std'}" class="${ALB.mode==='std'?'on':''}" data-alb="mode" data-m="std"><i></i><span><b>Стандарт</b><small>4 листа — уже в этой версии</small></span></button>
+        <button type="button" role="radio" aria-checked="${ALB.mode==='opt'}" class="${ALB.mode==='opt'?'on':''}" data-alb="mode" data-m="opt"><i></i><span><b>С опциями</b><small>Стандарт + выбранные листы</small></span></button></div>` : ''}
+      <h3>Стандарт — всегда</h3>
+      <div class="al-grid std">${ALB_STD.map(c => card(c, false)).join('')}</div>
+      <h3>Опции${pick && ALB.mode==='opt' ? ' — отметьте нужные' : ' — на выбор'}</h3>
+      ${pick && ALB.mode==='std' ? '<p class="al-note">Чтобы добавить листы, выберите «С опциями».</p>' : ''}
+      <div class="al-grid">${ALB_OPT.map(c => card(c, true)).join('')}</div>
+      <p class="al-note">Примеры — 15 этаж БЦ «Сидней Сити». ${pick ? 'Опции Claude подготовит отдельным выпуском: финальный альбом придёт в кабинет, на почту и в Telegram. DXF откроется сразу после «Принять».' : 'Выбор делается при «Принять» финальной версии — на сайте или в Telegram-боте.'}</p>
+    </div>
+    <div class="al-f">${pick ? `<span class="al-sum">${ALB.mode==='std' ? 'Стандарт · 4 листа' : 'Стандарт + ' + ALB.sel.length + ' опц.' + (extra ? '' : ALB.sel.length ? ' (только DXF)' : '')}</span>
+      <button type="button" class="btn" data-alb="go" ${ALB.mode==='opt' && !ALB.sel.length ? 'disabled' : ''}>${go}</button>` : `<button type="button" class="btn" data-alb="close">Понятно</button>`}</div>
+  </div>
+  ${ALB.zoom ? `<div class="al-zl" data-alb="unzoom"><figure><img src="${albImg(ALB.zoom, true)}" alt=""><figcaption>${esc(([...ALB_STD, ...ALB_OPT].find(c => c[0] === ALB.zoom) || ['', ''])[1])} · пример</figcaption></figure><button type="button" class="al-x" data-alb="unzoom" aria-label="Закрыть">×</button></div>` : ''}`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-alb]'); if (!b) return;
+  const a = b.dataset.alb; e.preventDefault();
+  if (a === 'examples'){ albOpen(null); return; }
+  if (a === 'close'){ albClose(); return; }
+  if (a === 'zoom'){ ALB.zoom = b.dataset.k; renderAlbum(); return; }
+  if (a === 'unzoom'){ ALB.zoom = null; renderAlbum(); return; }
+  if (a === 'mode'){ ALB.mode = b.dataset.m; renderAlbum(); return; }
+  if (a === 'tog'){ const k = b.dataset.k, i = ALB.sel.indexOf(k); if (i >= 0) ALB.sel.splice(i, 1); else ALB.sel.push(k); renderAlbum(); return; }
+  if (a === 'go'){ const id = ALB.id, opts = ALB.mode === 'opt' ? ALB.sel.slice() : []; ALB.open = false; renderAlbum(); cabSend(id, true, opts); return; }
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ALB.open){ if (ALB.zoom){ ALB.zoom = null; renderAlbum(); } else albClose(); } });
+if (location.hash === '#album') setTimeout(() => albOpen(null), 0);
+window.addEventListener('hashchange', () => { if (location.hash === '#album') albOpen(null); });
 
 /* ---------- уведомления, пока сайт открыт: число в названии вкладки и всплывающее уведомление ---------- */
 const PULSE = { sig:'', busy:false };
