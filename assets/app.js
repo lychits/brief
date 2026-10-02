@@ -359,14 +359,23 @@ function renderIntro(){
 /* ---------- вход по ПИН (первый вход с устройства) ---------- */
 const needPin = () => !!ENDPOINT() && !KEYV;
 let PIN = { v:'', err:'', busy:false };
+// Длина ПИН задаётся в «Настройках» реестра; запоминаем последнюю известную
+let PINLEN = (() => { try { const n = +localStorage.getItem('pridex-pinlen'); return n >= 4 && n <= 8 ? n : 5; } catch(e){ return 5; } })();
+let PINCFG = false;
+async function pinCfg(){
+  if (PINCFG || !ENDPOINT()) return; PINCFG = true;
+  try { const r = await post({ action:'cfg' }); const n = +r.pinlen;
+    if (n >= 4 && n <= 8 && n !== PINLEN){ PINLEN = n; try { localStorage.setItem('pridex-pinlen', n); } catch(e){} PIN.v = PIN.v.slice(0, n); if (view === 'pin') renderPin(); } } catch(e){}
+}
 function renderPin(){
+  pinCfg();
   app.innerHTML = `<section class="pin">
     <img src="assets/pridex-mark.svg" alt="" class="pin-mark">
     <h1>${t('pinH')}</h1>
     <label class="pin-l" for="pinIn">${t('pinP')}</label>
-    <div class="pin-box${PIN.err ? ' bad' : ''}${PIN.busy ? ' busy' : ''}">
-      <input id="pinIn" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" value="${esc(PIN.v)}" aria-describedby="pinErr" ${PIN.busy ? 'disabled' : ''}>
-      <div class="pin-dots" aria-hidden="true">${Array.from({length:6}, (_, i) => `<i class="${i < PIN.v.length ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="pin-box${PIN.err ? ' bad' : ''}${PIN.busy ? ' busy' : ''}" style="width:min(${PINLEN * 50}px,86vw)">
+      <input id="pinIn" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="${PINLEN}" pattern="[0-9]*" value="${esc(PIN.v)}" aria-describedby="pinErr" ${PIN.busy ? 'disabled' : ''}>
+      <div class="pin-dots" aria-hidden="true">${Array.from({length:PINLEN}, (_, i) => `<i class="${i < PIN.v.length ? 'on' : ''}"></i>`).join('')}</div>
     </div>
     <p class="pin-err" id="pinErr" role="alert">${esc(PIN.err)}</p>
     <p class="pin-help">${t('pinHelp')}</p>
@@ -374,7 +383,7 @@ function renderPin(){
   const i = $('#pinIn'); if (i && !PIN.busy) setTimeout(() => i.focus(), 30);
 }
 async function pinTry(){
-  if (PIN.busy || PIN.v.length < 6) return;
+  if (PIN.busy || PIN.v.length < PINLEN) return;
   PIN.busy = true; PIN.err = ''; renderPin();
   try {
     const r = await post({ action:'pin', pin:PIN.v });
@@ -388,10 +397,10 @@ async function pinTry(){
 }
 document.addEventListener('input', e => {
   if (e.target.id !== 'pinIn') return;
-  PIN.v = e.target.value.replace(/\D/g, '').slice(0, 6); e.target.value = PIN.v; PIN.err = '';
+  PIN.v = e.target.value.replace(/\D/g, '').slice(0, PINLEN); e.target.value = PIN.v; PIN.err = '';
   document.querySelectorAll('.pin-dots i').forEach((d, i) => d.classList.toggle('on', i < PIN.v.length));
   const b = $('.pin-box'); if (b) b.classList.remove('bad');
-  if (PIN.v.length === 6) pinTry();
+  if (PIN.v.length === PINLEN) pinTry();
 }, true);
 
 /* ---------- нижняя навигация ---------- */
