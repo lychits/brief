@@ -15,10 +15,11 @@ const store = {
 let S = { lang:'ru', mode:null, step:0, a:{}, maxStep:0 };
 const saved = store.get();
 if (saved && saved.a) S = Object.assign(S, saved);
+S.lang = 'ru';
 if (S.a.character != null && S.a.character <= 4 && S.a.character % 10) S.a.character = [10,20,50,70,90][S.a.character] ?? 20;
 ['hc3','hcUnknown','work','share','deskAdj'].forEach(k => delete S.a[k]);
 const FILES = {};            // fieldId -> [File]
-let view = 'intro';          // intro | wiz | sending | done | cab
+let view = 'intro';          // pin | intro | wiz | sending | done | cab | me
 
 /* ---------- i18n ---------- */
 const T = {
@@ -38,7 +39,7 @@ const T = {
   resume:{ru:'У вас есть незаконченный бриф.',en:'You have an unfinished brief.'},
   cont:{ru:'Продолжить',en:'Continue'}, reset:{ru:'Начать заново',en:'Start over'},
   back:{ru:'Назад',en:'Back'}, next:{ru:'Далее',en:'Next'}, review:{ru:'Проверить',en:'Review'},
-  send:{ru:'Отправить бриф',en:'Send brief'}, edit:{ru:'Изменить',en:'Edit'},
+  send:{ru:'Отправить',en:'Send'}, edit:{ru:'Изменить',en:'Edit'},
   step:{ru:'Шаг',en:'Step'}, of:{ru:'из',en:'of'},
   switchTo:{ru:'Перейти на',en:'Switch to'}, shortL:{ru:'сокращённый',en:'short'}, fullL:{ru:'расширенный',en:'detailed'},
   saved:{ru:'Черновик сохранён',en:'Draft saved'},
@@ -67,7 +68,27 @@ const T = {
   toShort:{ru:'Сокращённый бриф',en:'Short brief'}, toFull:{ru:'Расширенный бриф',en:'Detailed brief'},
   minLeft:{ru:'мин до отправки',en:'min to send'}, oneClick:{ru:'Остался один клик',en:'One click left'},
   sentL:{ru:'Бриф отправлен',en:'Brief sent'},
-  navL:{ru:'Навигация по брифу',en:'Brief navigation'}, homeL:{ru:'На главную',en:'Home'}
+  navL:{ru:'Навигация по брифу',en:'Brief navigation'}, homeL:{ru:'На главную',en:'Home'},
+  newH:{ru:'Новый Test-fit'}, tzT:{ru:'Есть ТЗ'}, tzS:{ru:'ТЗ и планировка · 1 шаг'},
+  shT:{ru:'Короткий бриф'}, shS:{ru:'5 вопросов · ≈ 5 мин'}, fuT:{ru:'Подробный бриф'}, fuS:{ru:'Все параметры · ≈ 20 мин'},
+  needLine:{ru:'Нужна планировка shell&core: DWG, DXF или векторный PDF'},
+  draftL:{ru:'Черновик'}, contDraft:{ru:'Продолжить черновик'}, todoH:{ru:'Ждут вас'}, todoQ:{ru:'Вопрос от Claude'}, todoR:{ru:'Результат готов'}, todoMore:{ru:'Ещё {n} в заявках'}, stepOf:{ru:'шаг {a} из {b}'}, waitYou:{ru:'ждут вашего ответа'}, waitOne:{ru:'ждёт вашего ответа'},
+  tabNew:{ru:'Новый'}, tabCab:{ru:'Заявки'}, tabMe:{ru:'Профиль'},
+  pinH:{ru:'Вход'}, pinP:{ru:'ПИН сотрудника'}, badPin:{ru:'Неверный ПИН'}, lockedPin:{ru:'Слишком много попыток. Повторите через 15 минут.'},
+  pinNet:{ru:'Нет связи с сервером. Повторите.'}, pinHelp:{ru:'ПИН выдаёт руководитель проекта. Вводится один раз на устройстве.'},
+  upFiles:{ru:'Файлы'}, upMake:{ru:'Заявка'}, upDone:{ru:'Готово'}, upKeep:{ru:'Не закрывайте страницу'},
+  upOk:{ru:'Заявка отправлена'}, upOkP:{ru:'Статус и ответы Claude — в «Заявках».'}, openJob:{ru:'Открыть заявку'}, newJob:{ru:'Новая заявка'},
+  meH:{ru:'Профиль'}, tgT:{ru:'Telegram-бот'}, tgOn:{ru:'Подключён. Вопросы Claude, файлы и результаты приходят в бот; там же можно отвечать, присылать фото и файлы и создавать заявки по ТЗ.'},
+  tgOff:{ru:'Заявки, вопросы Claude и результаты — в Telegram. Ответы, фото и файлы из бота сразу появляются здесь.'}, tgGo:{ru:'Подключить Telegram'}, tgOpen:{ru:'Открыть бота'},
+  tgNone:{ru:'Telegram-бот ещё не подключён. Уведомления приходят на почту.'},
+  logoutDev:{ru:'Выйти на этом устройстве'}, ntT:{ru:'Уведомления в браузере'}, ntGo:{ru:'Включить'}, ntAsk:{ru:'🔔 Сообщить, когда Claude ответит'}, ntDone:{ru:'🔔 Уведомления включены'},
+  nt_default:{ru:'Пока сайт открыт во вкладке — всплывающее уведомление о вопросе или готовом результате от Claude.'},
+  nt_granted:{ru:'Включены: пока сайт открыт во вкладке, вопрос или результат от Claude придёт уведомлением.'},
+  nt_denied:{ru:'Запрещены в настройках браузера для этого сайта. Уведомления приходят в Telegram и на почту.'},
+  nt_none:{ru:'Этот браузер не показывает уведомления сайтов. Уведомления приходят в Telegram и на почту.'},
+  ntQ:{ru:'Вопрос от Claude'}, ntR:{ru:'Test-fit готов'}, chatH:{ru:'Переписка'}, sendMsg:{ru:'Отправить'},
+  msgPh:{ru:'Сообщение для Claude'}, ansPh2:{ru:'Ответ на вопрос Claude'},
+  addH:{ru:'Дополнительно'}, addS:{ru:'не обязательно'}
 };
 const t = k => (T[k] ? (T[k][S.lang] || T[k].ru) : k);
 const L = o => (o == null ? '' : typeof o === 'string' ? o : (o[S.lang] || o.ru));
@@ -108,7 +129,23 @@ const teamBase = [
   { id:'hcNote', type:'note', t:{ru:'Если не указать — покажем максимальную вместимость этажа.',en:'Leave blank and we will show the maximum capacity of the floor.'} }
 ];
 
+// Объект — это здание; этаж — отдельно. Пусто — «Объект N», Claude уточнит по чертежу
+const OBJ = { id:'bc', type:'text', half:true, list:'objList', l:{ru:'Объект (здание)',en:'Building'}, ph:{ru:'Определим по чертежу',en:'From the drawing'} };
+const FLOOR = { id:'floor', type:'text', half:true, l:{ru:'Этаж',en:'Floor'}, ph:{ru:'Определим по чертежу',en:'From the drawing'} };
+const TZOPTS = { id:'tzOpts', type:'chips', l:{ru:'Учесть',en:'Consider'}, opts:[op('maxws','Максимум мест'), op('cabFacade','Кабинеты у фасада'), op('recep','Ресепшн'), op('kitchen','Кухня-столовая'),
+  op('lounge','Зоны отдыха'), op('booths','Телефонные будки'), op('archive','Архив / склад'), op('server','Серверная')] };
 const STEPS = [
+ { id:'tzone', modes:'t', t:{ru:'ТЗ и планировка',en:'Brief & plan'}, sub:{ru:'Объект и этаж определим по чертежу, если не указать.',en:''}, fields:[
+   { id:'tz', type:'file', multiple:1, accept:'', req:1, l:{ru:'ТЗ',en:'Brief'}, hint:{ru:'Word, Excel, PDF — в любой форме',en:'Any format'} },
+   { id:'sc', type:'file', multiple:1, accept:'.dwg,.dxf,.pdf', l:{ru:'Планировка shell&core',en:'Shell & core plan'}, hint:{ru:`DWG, DXF или векторный PDF — до ${MAXMB} МБ`,en:''}, req:a => !(a.scLink||'').trim(), reqMsg:'needFile' },
+   { id:'scLink', type:'url', l:{ru:'или ссылка на файлы',en:'or a link'}, ph:{ru:'Яндекс Диск, Google Drive…',en:'Google Drive…'} },
+   OBJ, FLOOR,
+   { id:'_add', type:'sep' },
+   { id:'wishes', type:'textarea', l:{ru:'Комментарий',en:'Comment'}, ph:{ru:'Что важно учесть сверх ТЗ',en:''} },
+   TZOPTS,
+   { id:'chOn', type:'check', l:{ru:'Задать долю open space / кабинеты',en:'Set open space / offices split'}, hint:{ru:'Без галочки — как в ТЗ. Заданная доля важнее ТЗ',en:'Otherwise as in the brief'} },
+   Object.assign({}, characterField, { id:'chTz', show:a => !!a.chOn, l:{ru:'Open space / кабинеты — важнее ТЗ',en:'Open space / offices — overrides the brief'}, hint:null })
+ ]},
  { id:'contacts', modes:'sf', t:{ru:'Контакты',en:'Contacts'}, sub:{ru:'Как с вами связаться.',en:'How to reach you.'}, fields:[
    { id:'company', type:'text', half:true, l:{ru:'Компания',en:'Company'}, auto:'organization' },
    { id:'name', type:'text', half:true, l:{ru:'Контактное лицо',en:'Contact person'}, auto:'name' },
@@ -117,13 +154,10 @@ const STEPS = [
    { id:'email', type:'email', half:true, l:{ru:'E-mail',en:'E-mail'}, auto:'email' },
    { id:'tg', type:'text', half:true, l:{ru:'Telegram',en:'Telegram'}, ph:'@username' }
  ]},
- { id:'object', modes:'sf', t:{ru:'Объект',en:'Premises'}, sub:{ru:'Где будет офис и когда нужен Test-fit.',en:'Where the office will be and when you need the Test-fit.'}, fields:[
-   { id:'objInFiles', type:'check', l:{ru:'Приложу всю информацию файлами',en:'I will attach all information as files'}, hint:{ru:'Адрес, этаж и площадь возьмём из ваших файлов — поля ниже можно не заполнять',en:'We will take the address, floor and area from your files — the fields below are optional'} },
-   { id:'bc', type:'text', req:a => !a.objInFiles, half:true, l:{ru:'Бизнес-центр',en:'Building'}, ph:{ru:'БЦ «…»',en:'Building name'} },
-   { id:'address', type:'text', req:a => !a.objInFiles, half:true, l:{ru:'Адрес',en:'Address'} },
-   { id:'floor', type:'text', half:true, l:{ru:'Этаж / блок',en:'Floor / unit'}, ph:{ru:'например, 15 этаж, блок А',en:'e.g. 15th floor, unit A'} },
-   { id:'area', type:'number', req:a => !a.objInFiles, half:true, l:{ru:'Площадь, м²',en:'Area, m²'}, min:1 },
-   { id:'deadline', type:'seg', l:{ru:'Когда нужен Test-fit',en:'When you need the Test-fit'}, opts:[op('asap','Как можно скорее','ASAP'), op('3d','2–3 дня','2–3 days'), op('flex','Не срочно','No rush')] },
+ { id:'object', modes:'sf', t:{ru:'Объект',en:'Premises'}, sub:{ru:'Можно не заполнять — определим по чертежу.',en:'Optional — we will read it from the drawing.'}, fields:[
+   OBJ, FLOOR,
+   { id:'area', type:'number', half:true, l:{ru:'Площадь, м²',en:'Area, m²'}, min:1 },
+   { id:'deadline', type:'seg', half:true, l:{ru:'Срок',en:'Deadline'}, opts:[op('asap','Срочно','ASAP'), op('3d','2–3 дня','2–3 days'), op('flex','Не срочно','No rush')] },
  ]},
  { id:'teamS', modes:'s', t:{ru:'Параметры пространства',en:'Space parameters'}, sub:{ru:'Сколько людей и каким вы видите офис.',en:'Headcount and how you see the office.'}, fields: teamBase },
  { id:'teamF', modes:'f', t:{ru:'Параметры пространства',en:'Space parameters'}, sub:{ru:'Сколько людей рассадить и как распределить подразделения.',en:'How many people to seat and how to arrange departments.'}, fields: teamBase.concat([
@@ -213,6 +247,7 @@ const byId = id => STEPS.find(s => s.id === id);
 const merge = (id, modes, t, sub, ids) => ({ id, modes, t, sub, fields: ids.flatMap(i => byId(i).fields) });
 /* Порядок шагов: контакты пока не спрашиваем, смежные разделы объединены — меньше кликов */
 const FLOW = [
+  byId('tzone'),
   byId('object'),
   merge('teamSpace','s',{ru:'Параметры пространства',en:'Space parameters'},{ru:'Сколько людей и каким вы видите офис.',en:'Headcount and how you see the office.'},['teamS','spaceS']),
   byId('teamF'),
@@ -223,7 +258,7 @@ const FLOW = [
   byId('files'),
   byId('review')
 ];
-const steps = () => FLOW.filter(s => s.modes.includes(S.mode === 'f' ? 'f' : 's'));
+const steps = () => FLOW.filter(s => s.modes.includes(S.mode === 'f' ? 'f' : S.mode === 't' ? 't' : 's'));
 const visible = f => !f.show || f.show(S.a);
 const isReq = f => typeof f.req === 'function' ? f.req(S.a) : !!f.req;
 
@@ -249,32 +284,164 @@ function setProgress(){
 const app = $('#app');
 function render(){
   document.documentElement.lang = S.lang;
-  document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.lang===S.lang));
-  $('#footNote').textContent = t('foot');
-  document.body.classList.toggle('in-wiz', view!=='intro' && view!=='cab');
+  if (needPin()) view = 'pin';
+  else if (view === 'pin') view = 'intro';
+  document.body.classList.toggle('in-wiz', view==='wiz' || view==='sending');
   document.body.classList.toggle('is-done', view==='done');
   document.body.classList.toggle('in-cab', view==='cab');
-  updateCabBtn();
-  if (view==='intro') renderIntro();
+  document.body.classList.toggle('in-pin', view==='pin');
+  document.body.dataset.view = view; document.body.dataset.mode = S.mode || '';
+  if (view==='pin') renderPin();
+  else if (view==='intro') renderIntro();
   else if (view==='wiz') renderWiz();
   else if (view==='cab') renderCab();
+  else if (view==='me') renderMe();
+  renderTabs();
   setProgress();
+  syncHistory();
 }
 
+/* ---------- история браузера: «Назад» в браузере и жест «назад» на телефоне ведут по экранам сайта ---------- */
+let popping = false;
+const routeOf = () => view==='wiz' ? { v:'wiz', step:S.step } : view==='cab' ? { v:'cab', sel:CAB.sel||null } : { v:view };
+const routeKey = r => r.v + (r.v==='wiz' ? ':' + r.step : r.v==='cab' ? ':' + (r.sel||'') : '');
+function syncHistory(){
+  if (view==='pin' || view==='sending') return;
+  const r = routeOf(), k = routeKey(r), cur = history.state && history.state.k;
+  if (cur === k) return;
+  const hash = r.v==='cab' ? '#cab' + (r.sel ? '/' + encodeURIComponent(r.sel) : '') : r.v==='me' ? '#me' : '';
+  const url = location.pathname + location.search + hash;
+  const swap = r.v==='cab' && r.sel && history.state && history.state.v==='cab' && history.state.sel;   // переключение между заявками — без лишних шагов назад
+  try { (popping || !cur || r.v==='done' || swap) ? history.replaceState(Object.assign({k}, r), '', url) : history.pushState(Object.assign({k}, r), '', url); } catch(e){}
+}
+window.addEventListener('popstate', e => {
+  if (view === 'sending'){ try { history.pushState(history.state, '', location.href); } catch(x){} return; }   // идёт отправка — не уходим
+  const hm = location.hash.match(/^#cab(?:\/(.+))?$/);     // переход по ссылке с #адресом — состояния ещё нет
+  const r = e.state || (hm ? { v:'cab', sel: hm[1] ? decodeURIComponent(hm[1]) : null } : location.hash === '#me' ? { v:'me' } : { v:'intro' });
+  popping = true;
+  try {
+    if (r.v === 'wiz' && S.mode){ S.step = Math.min(r.step||0, steps().length-1); leaveCab(); view = 'wiz'; render(); }
+    else if (r.v === 'cab' && hasCab()){ CAB.sel = r.sel || null; openCab(CAB.sel); }
+    else if (r.v === 'me'){ leaveCab(); view = 'me'; render(); }
+    else { leaveCab(); view = 'intro'; render(); }
+    window.scrollTo(0, 0);
+  } finally { popping = false; }
+});
+
 function renderIntro(){
-  const has = S.mode && Object.keys(S.a).length > 0;
+  const has = S.mode && Object.keys(S.a).some(k => k !== 'character' && S.a[k] != null && S.a[k] !== false && String(S.a[k]) !== '' && !(Array.isArray(S.a[k]) && !S.a[k].length)) || Object.values(FILES).some(x => x && x.length);
+  const act = (CAB.jobs || []).filter(x => ACTION.includes(x.status));
+  const nm = { t:t('tzT'), s:t('shT'), f:t('fuT') }[S.mode] || '';
+  const ico = {
+    t:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>',
+    s:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg>',
+    f:'<svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h16M4 20h10"/></svg>' };
+  const top = act.slice(0, 3), more = act.length - top.length;
+  const qIco = '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M10 9.2a2 2 0 1 1 2.6 1.9c-.4.2-.6.5-.6.9M12 13.6v.1"/></svg>';
+  const rIco = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>';
+  const todo = top.map(x => `<button class="todo ${x.status==='question'?'q':'r'}" data-act="openJob" data-job="${esc(x.id)}"><span class="ic">${x.status==='question'?qIco:rIco}</span><span class="dr-t"><b>${t(x.status==='question'?'todoQ':'todoR')}</b><small>${esc(x.id)} · ${esc(x.title || x.object || '')}</small></span><span class="ar">→</span></button>`).join('')
+    + (more > 0 ? `<button class="todo-more" data-act="cab">${t('todoMore').replace('{n}', more)} →</button>` : '')
+    + (has ? `<div class="draft"><button class="dr-go" data-act="resume"><span class="ic">${ico[S.mode]||ico.s}</span><span class="dr-t"><b>${t('contDraft')}</b><small>${esc(nm)} · ${t('stepOf').replace('{a}', S.step+1).replace('{b}', steps().length)}</small></span><span class="ar">→</span></button><button class="dr-x" data-act="reset" aria-label="${t('reset')}" title="${t('reset')}">✕</button></div>` : '');
   app.innerHTML = `
-  <section class="intro">
-    <p class="eyebrow">${t('eyebrow')}</p>
-    <h1>${t('h1')}</h1>
-    <p class="lead">${t('lead')}</p>
-    ${has ? `<div class="resume"><span>${t('resume')}</span><button class="btn" data-act="resume">${t('cont')}</button><button class="link" data-act="reset">${t('reset')}</button></div>` : ''}
-    <div class="modes">
-      <button class="mode" data-mode="s"><span class="tag">${t('shortTag')}</span><h3>${t('shortT')}</h3><p>${t('shortP')}</p><span class="go">${t('start')}</span></button>
-      <button class="mode dark" data-mode="f"><span class="tag">${t('fullTag')}</span><h3>${t('fullT')}</h3><p>${t('fullP')}</p><span class="go">${t('start')}</span></button>
+  <section class="home${todo ? ' has-todo' : ''}">
+    <p class="hi">${CAB.name ? esc(CAB.name) : 'Pridex'}</p>
+    ${todo ? `<h2 class="sec">${t('todoH')}</h2><div class="todos">${todo}</div>` : ''}
+    <h1>${t('newH')}</h1>
+    <div class="starts">
+      <button class="start" data-mode="t"><span class="ic">${ico.t}</span><b>${t('tzT')}</b><small>${t('tzS')}</small><span class="ar">→</span></button>
+      <button class="start" data-mode="s"><span class="ic">${ico.s}</span><b>${t('shT')}</b><small>${t('shS')}</small><span class="ar">→</span></button>
+      <button class="start" data-mode="f"><span class="ic">${ico.f}</span><b>${t('fuT')}</b><small>${t('fuS')}</small><span class="ar">→</span></button>
     </div>
-    <div class="need"><h4>${t('needH')}</h4><ul><li><span>${t('need1')}</span></li><li><span>${t('need2')}</span></li><li><span>${t('need3')}</span></li></ul></div>
+    <p class="need1">${t('needLine')}</p>
   </section>`;
+}
+
+/* ---------- вход по ПИН (первый вход с устройства) ---------- */
+const needPin = () => !!ENDPOINT() && !KEYV;
+let PIN = { v:'', err:'', busy:false };
+function renderPin(){
+  app.innerHTML = `<section class="pin">
+    <img src="assets/pridex-mark.svg" alt="" class="pin-mark">
+    <h1>${t('pinH')}</h1>
+    <label class="pin-l" for="pinIn">${t('pinP')}</label>
+    <div class="pin-box${PIN.err ? ' bad' : ''}${PIN.busy ? ' busy' : ''}">
+      <input id="pinIn" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" value="${esc(PIN.v)}" aria-describedby="pinErr" ${PIN.busy ? 'disabled' : ''}>
+      <div class="pin-dots" aria-hidden="true">${Array.from({length:6}, (_, i) => `<i class="${i < PIN.v.length ? 'on' : ''}"></i>`).join('')}</div>
+    </div>
+    <p class="pin-err" id="pinErr" role="alert">${esc(PIN.err)}</p>
+    <p class="pin-help">${t('pinHelp')}</p>
+  </section>`;
+  const i = $('#pinIn'); if (i && !PIN.busy) setTimeout(() => i.focus(), 30);
+}
+async function pinTry(){
+  if (PIN.busy || PIN.v.length < 6) return;
+  PIN.busy = true; PIN.err = ''; renderPin();
+  try {
+    const r = await post({ action:'pin', pin:PIN.v });
+    KEYV = r.key; kstore.set(KEYV); CAB.name = r.name || ''; nstore.set(CAB.name);
+    PIN = { v:'', err:'', busy:false }; view = 'intro'; render(); cabLoad(true);
+  } catch(err){
+    const m = String(err && err.message);
+    PIN = { v:'', busy:false, err: m === 'locked' ? t('lockedPin') : m === 'bad pin' ? t('badPin') : t('pinNet') };
+    renderPin(); const b = $('.pin-box'); if (b){ b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); }
+  }
+}
+document.addEventListener('input', e => {
+  if (e.target.id !== 'pinIn') return;
+  PIN.v = e.target.value.replace(/\D/g, '').slice(0, 6); e.target.value = PIN.v; PIN.err = '';
+  document.querySelectorAll('.pin-dots i').forEach((d, i) => d.classList.toggle('on', i < PIN.v.length));
+  const b = $('.pin-box'); if (b) b.classList.remove('bad');
+  if (PIN.v.length === 6) pinTry();
+}, true);
+
+/* ---------- нижняя навигация ---------- */
+function renderTabs(){
+  const bar = $('#tabbar'); if (!bar) return;
+  const show = ['intro','cab','me','done'].includes(view);
+  bar.hidden = !show; document.body.classList.toggle('has-tabs', show);
+  if (!show) return;
+  const n = (CAB.jobs || []).filter(x => ACTION.includes(x.status)).length;
+  const cur = view === 'cab' ? 'cab' : view === 'me' ? 'me' : 'new';
+  const ic = {
+    new:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    cab:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+    me:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c1-3.6 3.8-5.4 7-5.4s6 1.8 7 5.4"/></svg>' };
+  bar.innerHTML = `<div class="tb-in">${[['new','tabNew'],['cab','tabCab'],['me','tabMe']].map(([k, l]) =>
+    `<button type="button" class="tb${cur === k ? ' on' : ''}" data-tab="${k}" aria-current="${cur === k ? 'page' : 'false'}">${ic[k]}<span>${t(l)}</span>${k === 'cab' && n ? `<b class="bdg">${n}</b>` : ''}</button>`).join('')}</div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  e.stopPropagation();
+  const k = b.dataset.tab;
+  if (k === 'cab'){ openCab(); return; }
+  leaveCab();
+  if (k === 'me'){ view = 'me'; render(); window.scrollTo(0, 0); cabLoad(true); return; }
+  view = 'intro'; render(); window.scrollTo(0, 0);
+}, true);
+
+/* ---------- профиль ---------- */
+function renderMe(){
+  const tg = CAB.tg;
+  app.innerHTML = `<section class="prof">
+    <p class="hi">${t('meH')}</p>
+    <h1>${esc(CAB.name || '—')}</h1>
+    <div class="me-card">
+      <div class="me-row"><span class="me-ic tg"><svg viewBox="0 0 24 24"><path d="M21 4 3 11l6 2 2 6 3-4 5 4z"/><path d="m9 13 9-7"/></svg></span>
+        <div><b>${t('tgT')}</b><p>${!tg ? t('tgNone') : tg.linked ? t('tgOn') : t('tgOff')}</p></div></div>
+      ${tg && !tg.linked ? `<button class="btn" data-act="tgLink">${t('tgGo')}</button>` : ''}${tg && tg.linked ? `<a class="btn ghost" href="https://t.me/${esc(tg.bot)}" target="_blank" rel="noopener">${t('tgOpen')}</a>` : ''}
+    </div>
+    <div class="me-card">
+      <div class="me-row"><span class="me-ic nt"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span>
+        <div><b>${t('ntT')}</b><p>${t('nt_' + ntState())}</p></div></div>
+      ${ntState() === 'default' ? `<button class="btn" data-act="notifOn">${t('ntGo')}</button>` : ''}
+    </div>
+    <button class="link me-out" data-act="cabLogout">${t('logoutDev')}</button>
+  </section>`;
+}
+async function tgLink(b){
+  b.disabled = true;
+  try { const r = await post({ action:'tglink', key:KEYV }); location.href = r.url; }
+  catch(err){ b.disabled = false; toast(t('loadErr')); }
 }
 
 function fieldHTML(f){
@@ -287,7 +454,7 @@ function fieldHTML(f){
   const ph = f.ph ? ` placeholder="${esc(L(f.ph))}"` : '';
   switch (f.type){
     case 'text': case 'email': case 'tel': case 'url': case 'number': case 'month':
-      return `<div class="f" data-f="${f.id}">${lab}${hint}<input id="f_${f.id}" type="${f.type}" value="${esc(v ?? '')}"${ph}${f.auto?` autocomplete="${f.auto}"`:''}${f.type==='number'?` inputmode="numeric" min="${f.min??0}"`:''}>${err}</div>`;
+      return `<div class="f" data-f="${f.id}">${lab}${hint}<input id="f_${f.id}" type="${f.type}" value="${esc(v ?? '')}"${ph}${f.auto?` autocomplete="${f.auto}"`:''}${f.list?` list="${f.list}" autocomplete="off"`:''}${f.type==='number'?` inputmode="numeric" min="${f.min??0}"`:''}>${err}</div>`;
     case 'textarea':
       return `<div class="f" data-f="${f.id}">${lab}${hint}<textarea id="f_${f.id}"${ph}>${esc(v ?? '')}</textarea>${err}</div>`;
     case 'check':
@@ -328,6 +495,8 @@ function fieldHTML(f){
     }
     case 'note':
       return `<p class="fnote">${esc(L(f.t))}</p>`;
+    case 'sep':
+      return `<div class="sep"><b>${t('addH')}</b><span>${t('addS')}</span></div>`;
     case 'static':
       return `<div class="cl-box"><h5>${t('clH')}</h5><ul>${CHECK.map(c=>`<li>${esc(L(c))}</li>`).join('')}</ul></div>`;
   }
@@ -470,7 +639,7 @@ function buildBar(){
 function updateBar(){
   const st = steps(), n = st.length, bar = $('#bbar'); if (!bar) return;
   bar.classList.toggle('hidden', view==='done');
-  const pv = bar.querySelector('.bb-prev'); pv.disabled = S.step === 0;
+  const pv = bar.querySelector('.bb-prev'); pv.disabled = false;
   const nx = bar.querySelector('.bb-next');
   if (S.step === n-1){ nx.dataset.act = 'send'; nx.innerHTML = `<span class="tx">${t('send')}</span><span class="ar">↗</span>`; }
   else { nx.dataset.act = 'next'; nx.innerHTML = `<span class="tx">${S.step===n-2 ? t('review') : t('next')}</span><span class="ar">→</span>`; }
@@ -484,7 +653,7 @@ function buildTimeline(){
   $('#tl').innerHTML = `<div class="tl-in">
     <div class="tl-bar"><div class="tl-track"><i class="tl-fill" id="tlFill"></i></div>
       <ol class="tl-nodes">${nodes}<li class="tl-end"><span class="tl-node end"><span class="dot"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8.2 14 2.5 10.6 14l-2.4-4.6L2 8.2z"/></svg></span><span class="lbl">${t('endL')}</span></span></li></ol></div>
-    <div class="tl-meta"><span id="tlNow"></span><span class="tl-right"><span id="tlLeft"></span><button type="button" class="link" data-act="switch">${S.mode==='f'?t('toShort'):t('toFull')}</button></span></div>
+    <div class="tl-meta"><span id="tlNow"></span><span class="tl-right"><span id="tlLeft"></span>${S.mode==='t' ? '' : `<button type="button" class="link" data-act="switch">${S.mode==='f'?t('toShort'):t('toFull')}</button>`}</span></div>
   </div>`;
 }
 
@@ -547,7 +716,7 @@ function valText(f, ru){
       return rows.map(r=>f.cols.map(c=>r[c.id]).filter(x=>String(x??'').trim()).join(' · ')).join('\n');
     }
     case 'file': return (FILES[f.id]||[]).map(x=>`${x.name} (${fmtSize(x.size)})`).join('\n');
-    case 'static': case 'note': return '';
+    case 'static': case 'note': case 'sep': return '';
     default: return v==null ? '' : String(v).trim();
   }
 }
@@ -610,7 +779,7 @@ document.addEventListener('click', e => {
   if (act==='resume'){ view='wiz'; render(); return; }
   if (act==='reset'){ if (!confirmReset()) return; S = { lang:S.lang, mode:null, step:0, a:{}, maxStep:0 }; for (const k in FILES) delete FILES[k]; store.del(); render(); return; }
   if (act==='home'){ leaveCab(); view='intro'; render(); window.scrollTo(0,0); return; }
-  if (act==='prev'){ go(S.step-1); return; }
+  if (act==='prev'){ if (S.step === 0){ view='intro'; render(); window.scrollTo(0,0); } else go(S.step-1); return; }
   if (act==='next'){ if (validateStep(S.step)) go(S.step+1); return; }
   if (act==='switch'){ const curId = steps()[S.step].id; S.mode = S.mode==='f'?'s':'f'; const st = steps(); const alias = {teamSpace:'teamF', teamF:'teamSpace'}; let j = st.findIndex(s=>s.id===curId); if (j<0) j = st.findIndex(s=>s.id===alias[curId]); S.step = j>=0?j:0; S.maxStep = Math.max(S.step, Math.min(S.maxStep, st.length-1)); save(); render(); return; }
   if (act==='send'){ submit(); return; }
@@ -686,7 +855,7 @@ window.addEventListener('scroll', () => { const h = $('.top'); if (h) h.classLis
 function reportSections(){
   return steps().filter(s=>s.id!=='review').map(s => ({
     title: LR(s.t),
-    rows: s.fields.filter(f=>visible(f)&&f.type!=='static'&&f.type!=='note').map(f => ({ f, label: LR(f.l), value: valText(f, true) })).filter(r => r.value)
+    rows: s.fields.filter(f=>visible(f)&&!['static','note','sep'].includes(f.type)).map(f => ({ f, label: LR(f.l), value: valText(f, true) })).filter(r => r.value)
   }));
 }
 const today = () => { const d = new Date(); return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}); };
@@ -697,11 +866,12 @@ function mdTable(f){
   if (f.sumCol) out += `\n\nИтого: ${rows.reduce((a,x)=>a+(+x[f.sumCol]||0),0)}`;
   return out;
 }
+const MODE_L = () => ({ f:'расширенный бриф', t:'по ТЗ', s:'сокращённый бриф' })[S.mode] || 'сокращённый бриф';
 function buildMD(){
   const a = S.a;
   const nm = [a.company,a.bc].filter(Boolean).join(', ');
   let md = `# Бриф на Test-fit офиса${nm ? ' — '+nm : ''}\n\n`;
-  md += `- Формат брифа: ${S.mode==='f'?'расширенный':'сокращённый'}\n- Дата: ${today()}\n- Объект: ${[a.bc,a.address,a.floor].filter(Boolean).join(', ') || (a.objInFiles ? 'см. приложенные файлы' : '—')}\n- Язык заполнения: ${S.lang.toUpperCase()}\n\n`;
+  md += `- Формат: ${MODE_L()}\n- Дата: ${today()}\n- Объект (здание): ${a.bc || 'не указан — определить по чертежу'}\n- Этаж: ${a.floor || 'не указан — определить по чертежу'}\n\n`;
   reportSections().forEach((s,i) => {
     md += `## ${i+1}. ${s.title}\n\n`;
     const tables = [];
@@ -724,7 +894,7 @@ function buildHTML(){
   table{border-collapse:collapse;width:100%} th{width:36%;text-align:left;font-weight:normal;color:#666;vertical-align:top;padding:4px 10px 4px 0} td{padding:4px 0;vertical-align:top}
   table table th,table table td{border:1px solid #ddd;padding:3px 6px;width:auto;color:#111} .e{color:#999}
   </style></head><body><div style="font-weight:bold;font-size:14pt;letter-spacing:-.02em">Pridex</div>
-  <h1>Бриф на Test-fit офиса</h1><p class="m">${esc(a.company||'')} · ${esc([a.bc,a.address,a.floor].filter(Boolean).join(', '))} · ${S.mode==='f'?'расширенный':'сокращённый'} · ${today()}</p>${sec}</body></html>`;
+  <h1>Бриф на Test-fit офиса</h1><p class="m">${esc([a.bc,a.floor].filter(Boolean).join(', ') || 'объект по чертежу')} · ${MODE_L()} · ${today()}</p>${sec}</body></html>`;
 }
 function tableHTML(f){
   const rows = (S.a[f.id]||[]).filter(r=>Object.values(r).some(x=>String(x??'').trim()));
@@ -755,37 +925,74 @@ async function post(body){
 }
 async function submit(){
   const st = steps();
-  for (let i=0;i<st.length-1;i++){ if (!validateStep(i,false)){ go(i); setTimeout(()=>validateStep(i),50); return; } }
-  view = 'sending'; setProgress();
-  ($('.card.cur .card-in')||app).innerHTML = `<section class="sending"><h2 style="font:700 32px/1.1 var(--display);margin:0">${t('sending')}</h2><div class="bar"><i id="upBar"></i></div><div class="hint" id="upTxt"></div></section>`;
+  for (let i=0;i<st.length-(S.mode==='t'?0:1);i++){ if (!validateStep(i,false)){ go(i); setTimeout(()=>validateStep(i),50); return; } }
   const md = buildMD();
+  const up = []; ['sc','tz','refs'].forEach(k => (FILES[k]||[]).forEach(f => { if (f.size <= MAXMB*1048576) up.push({role:k, file:f}); }));
+  const total = up.reduce((s,x)=>s+x.file.size,0) || 1; let sent = 0;
+  view = 'sending'; document.body.classList.add('in-wiz'); renderTabs();
+  app.innerHTML = sendingHTML(up.length);
+  window.scrollTo(0, 0);
+  const st_ = (k, state, txt) => { const li = $(`.up-steps [data-k="${k}"]`); if (!li) return; li.className = state; if (txt != null) li.querySelector('small').textContent = txt; };
+  const pct = p => { const r = $('#upRing'), v = $('#upPct'); if (r) r.style.strokeDashoffset = String(301.6 * (1 - p)); if (v) v.textContent = Math.round(p * 100) + '%'; };
   if (!ENDPOINT()){
-    await new Promise(r=>setTimeout(r,500)); showDone(true, md); return;
+    for (let i = 1; i <= 10; i++){ await new Promise(r=>setTimeout(r,120)); pct(i/10*0.9); }
+    st_('files','done'); st_('job','done'); pct(1); showDone(true, md, { id:'TF-demo', object: S.a.bc || 'Объект 1' }); return;
   }
   try{
-    const up = []; ['sc','tz','refs'].forEach(k => (FILES[k]||[]).forEach(f => { if (f.size <= MAXMB*1048576) up.push({role:k, file:f}); }));
-    const total = up.reduce((s,x)=>s+x.file.size,0) || 1; let sent = 0;
-    const bar = $('#upBar'), txt = $('#upTxt');
-    const init = await post({ action:'init', company:S.a.company||'', bc:S.a.bc||'', key:KEYV });
+    st_('files', 'cur', up.length ? `0 из ${up.length} · 0 из ${fmtSize(total)}` : '—');
+    const init = await post({ action:'init', company:'', bc:S.a.bc||'', key:KEYV });
+    let n = 0;
     for (const x of up){
-      txt.textContent = `${t('sendingF')}: ${x.file.name}`;
-      await post({ action:'file', sid:init.sid, role:x.role, name:x.file.name, mime:x.file.type||'application/octet-stream', data: await b64(x.file) });
-      sent += x.file.size; bar.style.width = Math.round(sent/total*90)+'%';
+      const tick = setInterval(() => { sent += Math.min(x.file.size * 0.04, 400000); pct(Math.min(0.88, sent/total*0.85)); }, 250);
+      try { await post({ action:'file', sid:init.sid, role:x.role, name:x.file.name, mime:x.file.type||'application/octet-stream', data: await b64(x.file) }); }
+      finally { clearInterval(tick); }
+      n++; sent = up.slice(0, n).reduce((s, y) => s + y.file.size, 0);
+      pct(sent/total*0.85); st_('files', 'cur', `${n} из ${up.length} · ${fmtSize(sent)} из ${fmtSize(total)}`);
     }
-    const fin = await post({ action:'finish', sid:init.sid, key:KEYV, md, html: buildHTML(), answers:S.a, mode:S.mode, lang:S.lang,
-                 contact:{ company:S.a.company||S.a.bc, name:S.a.name, email:S.a.email, phone:S.a.phone } });
-    bar.style.width='100%'; CAB.jobs = null; if (fin.id) CAB.sel = fin.id; showDone(false);
+    st_('files', 'done'); st_('job', 'cur');
+    const fin = await post({ action:'finish', sid:init.sid, key:KEYV, md, html: buildHTML(), answers:S.a, mode:S.mode, lang:S.lang });
+    pct(1); st_('job', 'done');
+    CAB.jobs = null; if (fin.id) CAB.sel = fin.id;
+    for (const k in FILES) delete FILES[k];
+    showDone(false, md, fin); cabLoad(true);
   } catch(err){
     console.error(err);
-    ($('.card.cur .card-in')||app).innerHTML = `<section class="sending"><h2 style="font:700 28px/1.2 var(--display);margin:0 0 14px">${t('errSend')}</h2><div class="nav" style="border:0"><button class="btn" data-act="retry">${t('retry')}</button><button class="btn ghost" data-act="dl">${t('dl')}</button></div></section>`;
-    view = 'wiz';
+    app.innerHTML = `<section class="sending"><div class="up-fail">!</div><h2>${t('errSend')}</h2><div class="up-btns"><button class="btn" data-act="retry">${t('retry')}</button><button class="btn ghost" data-act="resume">${t('back')}</button></div></section>`;
+    view = 'wiz'; document.body.dataset.view = 'sending';
   }
 }
-function showDone(demo, md){
-  view = 'done'; setProgress(); updateTimeline(); document.body.classList.add('is-done');
-  const host = $('.card.cur .card-in') || app; updateBar();
-  host.innerHTML = `<section class="done"><div class="ok">✓</div><h1 style="font-size:clamp(32px,5vw,48px)">${t('doneH')}</h1><p class="lead">${KEYV && !demo ? t('doneK') : t('doneP')}</p>${demo?`<div class="note">${t('demo')}</div><details class="mdv"><summary>brief.md</summary><pre>${esc(md||'')}</pre></details>`:''}<div class="nav" style="border:0;justify-content:flex-start;gap:16px;flex-wrap:wrap">${hasCab()?`<button class="btn" data-act="cab">${t('cabGo')} →</button>`:''}<button class="btn ghost" data-act="dl">${t('dl')}</button><button class="link" data-act="again">${t('newBrief')}</button></div></section>`;
-  if (!demo){ const keepLang = S.lang; store.del(); S.lang = keepLang; }
+function sendingHTML(nf){
+  return `<section class="sending" aria-live="polite">
+    <div class="up-anim">
+      <svg class="up-plan" viewBox="0 0 120 90" aria-hidden="true">
+        <path class="ln l1" d="M10 10h100v70H10z"/><path class="ln l2" d="M45 10v28h30V10M45 80V52h30v28"/><path class="ln l3" d="M10 45h22M88 45h22M60 38v14"/>
+        <path class="ln l4" d="M18 18h14v8H18zM18 58h14v8H18zM88 18h14v8H88zM88 58h14v8H88z"/>
+      </svg>
+      <svg class="up-ring" viewBox="0 0 110 110" aria-hidden="true"><circle cx="55" cy="55" r="48" class="bg"/><circle cx="55" cy="55" r="48" class="fg" id="upRing"/></svg>
+      <b class="up-pct" id="upPct">0%</b>
+    </div>
+    <ol class="up-steps">
+      <li data-k="files" class="cur"><i></i><span>${t('upFiles')}</span><small>${nf ? '' : '—'}</small></li>
+      <li data-k="job"><i></i><span>${t('upMake')}</span><small></small></li>
+    </ol>
+    <p class="up-keep">${t('upKeep')}</p>
+  </section>`;
+}
+function showDone(demo, md, fin){
+  view = 'done'; setProgress(); document.body.classList.remove('in-wiz'); document.body.classList.add('is-done'); document.body.dataset.view = 'done';
+  fin = fin || {};
+  app.innerHTML = `<section class="sending done-s">
+    <div class="up-ok"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>
+    <h1>${t('upOk')}</h1>
+    <p class="up-id">${esc(fin.id || '')}${fin.object ? ' · ' + esc(fin.object) : ''}</p>
+    <p class="up-sub">${t('upOkP')}</p>
+    ${demo ? `<div class="note">${t('demo')}</div>` : ''}
+    <div class="up-btns"><button class="btn" data-act="cab">${t('openJob')} →</button><button class="btn ghost" data-act="again">${t('newJob')}</button></div>
+    ${!demo && ntState() === 'default' ? `<button class="link up-nt" data-act="notifOn">${t('ntAsk')}</button>` : ''}
+  </section>`;
+  renderTabs();
+  if (!demo){ store.del(); S = { lang:'ru', mode:null, step:0, a:{}, maxStep:0 }; }
+  syncHistory();
 }
 
 /* ---------- кабинет сотрудника ---------- */
@@ -795,10 +1002,12 @@ const kstore = {
   set(v){ try { v ? localStorage.setItem(KKEY, v) : localStorage.removeItem(KKEY); } catch(e){} }
 };
 let KEYV = kstore.get();
+const nstore = { get(){ try { return localStorage.getItem('pridex-name') || ''; } catch(e){ return ''; } }, set(v){ try { v ? localStorage.setItem('pridex-name', v) : localStorage.removeItem('pridex-name'); } catch(e){} } };
 (function takeKeyFromUrl(){
   try {
     const u = new URL(location.href); const k = u.searchParams.get('k');
-    if (k){ KEYV = k.trim(); kstore.set(KEYV); u.searchParams.delete('k'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+    // ключ в адресе больше не принимается: на новом устройстве — только ПИН. Старую ссылку просто чистим.
+    if (k){ u.searchParams.delete('k'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
   } catch(e){}
 })();
 const CT = {
@@ -834,6 +1043,7 @@ const CT = {
   s_question:{ru:'Нужны уточнения',en:'Question'}, s_accepted:{ru:'Принято',en:'Accepted'}, s_error:{ru:'Ошибка',en:'Error'},
   e_created:{ru:'Заявка создана',en:'Request created'}, e_taken:{ru:'Взята в работу',en:'Taken into work'}, e_result:{ru:'Готова версия',en:'Version ready'},
   e_question:{ru:'Вопрос',en:'Question'}, e_comment:{ru:'Замечания',en:'Comments'}, e_accepted:{ru:'Принято',en:'Accepted'}, e_error:{ru:'Ошибка',en:'Error'},
+  e_answer:{ru:'Ответ'}, e_note:{ru:'Дополнение'}, e_info:{ru:'Сообщение'}, e_meta:{ru:'Объект определён'},
   tr1:{ru:'Получена',en:'Received'}, tr2:{ru:'В работе',en:'In progress'}, tr3:{ru:'Готово',en:'Ready'}, tr4:{ru:'Принято',en:'Accepted'}
 };
 Object.assign(T, CT);
@@ -841,8 +1051,12 @@ T.cabGo = {ru:'Открыть мои заявки',en:'Open my requests'};
 T.heldP = {ru:'Рабочие файлы DXF ({n} шт.) откроются после согласования PDF — кнопка «Принять Test-fit».',en:'Working DXF files ({n}) unlock once the PDF is approved — use “Accept Test-fit”.'};
 T.doneK = {ru:'Заявка передана в работу — Claude возьмёт её в течение часа. Статус, файлы и замечания — в «Мои заявки», о готовности придёт письмо.',en:'Your request is queued — Claude will pick it up within an hour. Status, files and comments are in “My requests”; you’ll get an email when it’s ready.'};
 
-const setHash = h => { try { history.replaceState(null, '', location.pathname + location.search + h); } catch(e){} };
-const CAB = { jobs:null, name:'', sel:null, filter:'all', err:'', busy:false, drafts:{}, att:{}, toast:'', timer:null };
+const setHash = h => {};          // адрес и история ведёт syncHistory()
+const CAB = { jobs:null, name:nstore.get(), sel:null, filter:'all', err:'', busy:false, drafts:{}, att:{}, toast:'', timer:null, tg:null, objects:[] };
+function fillObjects(){
+  let dl = $('#objList'); if (!dl){ dl = document.createElement('datalist'); dl.id = 'objList'; document.body.appendChild(dl); }
+  dl.innerHTML = (CAB.objects || []).map(o => `<option value="${esc(o.name)}">${esc((o.floors || []).join(', '))}</option>`).join('');
+}
 const isDemo = () => !ENDPOINT();
 const hasCab = () => !!KEYV || isDemo();
 const ACTION = ['ready','question'], WORK = ['new','work','feedback'];
@@ -868,27 +1082,29 @@ function demoJobs(){
 }
 
 async function cabLoad(silent){
-  if (isDemo()){ if (!CAB.jobs){ CAB.jobs = demoJobs(); CAB.name = 'Анна'; } if (!silent) renderCab(); return; }
+  if (isDemo()){ if (!CAB.jobs){ CAB.jobs = demoJobs(); CAB.name = 'Анна'; CAB.tg = { bot:'pridex_testfit_bot', linked:false }; CAB.objects = [{name:'БЦ «Сидней Сити»', floors:['15 этаж']}]; fillObjects(); }
+    if (view === 'cab') renderCab(silent); else if (!silent || view === 'intro' || view === 'me') render(); return; }
   if (!KEYV){ renderCab(); return; }
   if (!silent){ CAB.busy = true; renderCab(); }
   try {
     const r = await post({ action:'list', key:KEYV });
-    CAB.jobs = r.jobs; CAB.name = r.name; CAB.err = '';
+    CAB.jobs = r.jobs; CAB.name = r.name; nstore.set(r.name); CAB.tg = r.tg || null; CAB.objects = r.objects || []; CAB.err = ''; fillObjects();
+    PULSE.sig = sigAll(r.jobs.map(x => ({ id:x.id, status:x.status, version:x.version, e:(x.events||[]).length }))); watchNew(); updateTitle();
   } catch(err){
-    if (String(err.message) === 'bad key'){ KEYV = ''; kstore.set(''); CAB.err = t('badKey'); }
+    if (String(err.message) === 'bad key'){ KEYV = ''; kstore.set(''); nstore.set(''); CAB.jobs = null; render(); return; }
     else CAB.err = t('loadErr');
   }
   CAB.busy = false;
   if (view === 'cab') renderCab(silent);
+  else if (view === 'intro' || view === 'me') render(); else renderTabs();
 }
 
 function openCab(id){
+  if (needPin()){ view = 'pin'; render(); return; }
   view = 'cab'; if (id) CAB.sel = id;
   const h = '#cab' + (CAB.sel ? '/' + CAB.sel : ''); if (location.hash !== h) setHash(h);
   render(); window.scrollTo(0, 0);
   cabLoad(!!CAB.jobs);
-  clearInterval(CAB.timer);
-  CAB.timer = setInterval(() => { if (view === 'cab' && !document.hidden && !isDemo()) cabLoad(true); }, 60000);
 }
 function leaveCab(){ clearInterval(CAB.timer); if (location.hash.startsWith('#cab')) setHash(''); }
 
@@ -904,20 +1120,15 @@ function filtered(){
 
 function renderCab(soft){
   updateCabBtn();
-  if (!isDemo() && !KEYV){
-    app.innerHTML = `<section class="cab cab-login"><p class="eyebrow">${t('cabEy')}</p><h1>${t('loginH')}</h1><p class="lead">${t('loginP')}</p>
-      <form class="login" data-act-form="login"><input id="cabKey" type="text" autocomplete="off" spellcheck="false" placeholder="••••••••••••"><button class="btn" data-act="cabLogin">${t('loginB')}</button></form>
-      ${CAB.err?`<p class="err-t">${esc(CAB.err)}</p>`:''}</section>`;
-    return;
-  }
+  if (!isDemo() && !KEYV){ render(); return; }
   const keepScroll = soft ? ($('.cab-detail')||{}).scrollTop : 0;
   const c = counts(), list = filtered();
   if (CAB.sel && CAB.jobs && !CAB.jobs.some(x=>x.id===CAB.sel)) CAB.sel = null;
   const sel = CAB.jobs && CAB.jobs.find(x=>x.id===CAB.sel);
   app.innerHTML = `<section class="cab${sel?' has-sel':''}">
     <div class="cab-head">
-      <div><p class="eyebrow">${t('cabEy')}${CAB.name?` · ${esc(CAB.name)}`:''}</p><h1>${t('cabH')}</h1></div>
-      <div class="cab-head-r">${!isDemo()?`<button class="link" data-act="cabLogout">${t('logout')}</button>`:''}<button class="btn" data-act="cabNew">${t('cabNew')} <span aria-hidden="true">＋</span></button></div>
+      <div><h1>${t('cabH')}</h1></div>
+
     </div>
     ${isDemo()?`<div class="note cab-demo">${t('demoCab')}</div>`:''}
     ${CAB.err?`<div class="note err-n">${esc(CAB.err)}</div>`:''}
@@ -940,8 +1151,8 @@ function renderCab(soft){
 function jobRow(x){
   return `<button class="jrow${x.id===CAB.sel?' on':''}${ACTION.includes(x.status)?' act':''}" data-job="${esc(x.id)}">
     <span class="jr-top"><span class="jid">${esc(x.id)}</span>${pill(x.status)}</span>
-    <span class="jr-obj">${esc(x.object)}</span>
-    <span class="jr-meta">${esc(x.mode)}${x.version?` · v${x.version}`:''} · ${t('upd')} ${fdt(x.updated)}</span></button>`;
+    <span class="jr-obj">${esc(x.title || x.object)}</span>
+    <span class="jr-meta">${esc(x.mode)}${x.version?` · v${x.version}`:''} · ${fdt(x.updated)}</span></button>`;
 }
 
 function track(s){
@@ -952,40 +1163,39 @@ function track(s){
 function fileRow(x, f){
   const ext = (f.name.split('.').pop()||'').slice(0,4).toUpperCase();
   return `<li><span class="ext">${esc(ext)}</span><span class="nm">${esc(f.name)}</span><span class="sz">${f.size?fmtSize(f.size):''}</span>
-    <button class="btn ghost sm" data-act="cabDl" data-job="${esc(x.id)}" data-fid="${esc(f.id)}" data-name="${esc(f.name)}">${t('dlF')} ↓</button></li>`;
+    <button class="btn ghost sm" data-act="cabDl" data-job="${esc(x.id)}" data-ref="${esc(f.ref)}" data-name="${esc(f.name)}">${t('dlF')} ↓</button></li>`;
 }
 
 function jobDetail(x){
   const res = x.results || [], last = res[0], older = res.slice(1);
-  const canFb = ['ready','question','accepted','error'].includes(x.status);
   const isQ = x.status === 'question';
   const att = CAB.att[x.id] || [];
-  const who = e => e.who === 'Claude' ? `<span class="av c">C</span>` : `<span class="av">${esc((e.who||'?').trim().charAt(0).toUpperCase())}</span>`;
+  const SYS = ['created','taken','accepted','error','meta'];
+  const me = CAB.name || '';
+  const bub = e => {
+    const files = (e.files||[]).length ? `<div class="evf">${e.files.map((n,i)=>(e.refs||[])[i] ? `<button type="button" class="evdl" data-act="cabDl" data-job="${esc(x.id)}" data-ref="${esc(e.refs[i])}" data-name="${esc(n)}">${/\.(png|jpe?g|webp|heic)$/i.test(n)?'🖼':'📎'} ${esc(n)}</button>` : `<span>${esc(n)}</span>`).join('')}</div>` : '';
+    if (SYS.includes(e.type)) return `<li class="sys"><span>${esc(t('e_'+e.type))}${e.type==='meta' && e.text ? ': ' + esc(e.text) : ''} · ${fdt(e.at)}</span>${e.type==='error' && e.text ? `<p>${esc(e.text)}</p>` : ''}</li>`;
+    const mine = e.who !== 'Claude';
+    const head = e.type === 'result' ? `${t('e_result')} v${e.v}` : e.type === 'question' ? t('e_question') : e.type === 'comment' ? `${t('e_comment')} к v${e.v}` : '';
+    return `<li class="msg ${mine ? 'mine' : 'cl'} t-${e.type}">${mine ? '' : '<span class="av c">C</span>'}<div class="bb">${head ? `<b>${esc(head)}</b>` : ''}${e.text ? `<p>${esc(e.text).replace(/\n/g,'<br>')}</p>` : ''}${files}<small>${mine && e.who !== me ? esc(e.who) + ' · ' : ''}${fdt(e.at)}${e.via==='Telegram' ? ' · <span class="via">Telegram</span>' : ''}</small></div></li>`;
+  };
   return `<article class="jd">
     <button class="link jd-back" data-act="cabBack">← ${t('back2')}</button>
     <div class="jd-top"><span class="jid">${esc(x.id)} · ${esc(x.mode)}</span>${pill(x.status)}</div>
-    <h2>${esc(x.object)}</h2>
+    <h2>${esc(x.title || x.object)}</h2>
     ${track(x.status)}
-    <p class="jd-hint">${t('hint_'+x.status)}</p>
-
-    <h3>${t('res')}</h3>
-    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}</div><ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul>${last.held ? `<p class="held">${t('heldP').replace('{n}', last.held)}</p>` : ''}</div>`
-           : `<p class="muted">${t('noRes')}</p>`}
+    ${last ? `<div class="vcard"><div class="vh">${t('ver')} ${last.v}${x.status==='ready' ? `<button class="btn ghost sm" data-act="cabAccept" data-job="${esc(x.id)}">✓ ${t('accept')}</button>` : ''}</div><ul class="files">${last.files.map(f=>fileRow(x,f)).join('')}</ul>${last.held ? `<p class="held">${t('heldP').replace('{n}', last.held)}</p>` : ''}</div>` : ''}
     ${older.length ? `<details class="older"><summary>${t('prevV')} (${older.length})</summary>${older.map(r=>`<div class="vcard old"><div class="vh">${t('ver')} ${r.v}</div><ul class="files">${r.files.map(f=>fileRow(x,f)).join('')}</ul></div>`).join('')}</details>` : ''}
-
-    ${canFb ? `<div class="fb${x.status==='accepted'?' quiet':''}">
-      <h3>${isQ ? t('ansH') : x.status==='accepted' ? t('reopenH') : `${t('fbH')} v${x.version}`}</h3>
-      <textarea id="cabText" data-job="${esc(x.id)}" rows="4" placeholder="${esc(isQ?t('ansPh'):t('fbPh'))}"></textarea>
+    <h3>${t('chatH')}</h3>
+    <ol class="chat">${(x.events||[]).map(bub).join('')}</ol>
+    <div class="composer${isQ ? ' q' : ''}">
       ${att.length ? `<ul class="files att">${att.map((f,i)=>`<li><span class="ext">${esc((f.name.split('.').pop()||'').slice(0,4).toUpperCase())}</span><span class="nm">${esc(f.name)}</span><span class="sz">${fmtSize(f.size)}</span><button type="button" data-act="cabRm" data-i="${i}" aria-label="×">×</button></li>`).join('')}</ul>` : ''}
-      <div class="fb-bar">
-        <label class="link attach"><input type="file" id="cabFile" multiple hidden>＋ ${t('attach')}</label>
-        <span class="sp"></span>
-        ${x.status==='ready' ? `<button class="btn ghost" data-act="cabAccept" data-job="${esc(x.id)}">✓ ${t('accept')}</button>` : ''}
-        <button class="btn" data-act="cabSend" data-job="${esc(x.id)}">${isQ?t('sendAns'):t('sendFb')}</button>
-      </div></div>` : ''}
-
-    <h3>${t('hist')}</h3>
-    <ol class="hist">${(x.events||[]).slice().reverse().map(e=>`<li class="ev ev-${e.type}">${who(e)}<div class="evb"><div class="evh"><b>${esc(t('e_'+e.type))}${e.type==='result'?` v${e.v}`:''}</b><span>${esc(e.who)} · ${fdt(e.at)}</span></div>${e.text?`<p>${esc(e.text).replace(/\n/g,'<br>')}</p>`:''}${(e.files||[]).length?`<div class="evf">${e.files.map(n=>`<span>${esc(n)}</span>`).join('')}</div>`:''}</div></li>`).join('')}</ol>
+      <div class="cm-row">
+        <label class="cm-att" aria-label="${t('attach')}"><input type="file" id="cabFile" multiple hidden><svg viewBox="0 0 24 24"><path d="M20 11.5 12.4 19a5 5 0 0 1-7-7l8-8a3.3 3.3 0 0 1 4.7 4.7l-8 8a1.7 1.7 0 0 1-2.4-2.4l7.3-7.3"/></svg></label>
+        <textarea id="cabText" data-job="${esc(x.id)}" rows="1" placeholder="${esc(isQ ? t('ansPh2') : t('msgPh'))}"></textarea>
+        <button class="cm-send" data-act="cabSend" data-job="${esc(x.id)}" aria-label="${t('sendMsg')}"><svg viewBox="0 0 24 24"><path d="M4 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
   </article>`;
 }
 
@@ -995,7 +1205,7 @@ async function cabDownload(b){
   if (isDemo()){ toast(t('demoDl')); return; }
   b.disabled = true; const old = b.innerHTML; b.textContent = '…';
   try {
-    const r = await post({ action:'getfile', key:KEYV, id:b.dataset.job, fileId:b.dataset.fid });
+    const r = await post({ action:'getfile', key:KEYV, id:b.dataset.job, ref:b.dataset.ref });
     const bin = atob(r.data), u8 = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
     const url = URL.createObjectURL(new Blob([u8], {type:r.mime||'application/octet-stream'}));
     const a = document.createElement('a'); a.href = url; a.download = r.name || b.dataset.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 4000);
@@ -1007,7 +1217,7 @@ async function cabSend(id, accept){
   const x = CAB.jobs.find(j=>j.id===id); if (!x) return;
   const text = (CAB.drafts[id]||'').trim(), att = CAB.att[id] || [];
   if (!accept && !text && !att.length){ const ta = $('#cabText'); if (ta){ ta.classList.add('bad'); ta.focus(); } return; }
-  const btns = app.querySelectorAll('.fb-bar .btn'); btns.forEach(b=>b.disabled=true);
+  const btns = app.querySelectorAll('.composer button, .vh .btn'); btns.forEach(b=>b.disabled=true);
   const who = CAB.name || 'Сотрудник', at = new Date().toISOString();
   try {
     if (!isDemo()){
@@ -1018,43 +1228,75 @@ async function cabSend(id, accept){
       }
     }
     if (accept){ x.status = 'accepted'; x.events.push({at, who, type:'accepted', v:x.version, text:'', files:[]}); }
-    else { x.status = 'feedback'; x.events.push({at, who, type:'comment', v:x.version, text, files:att.map(f=>f.name)}); CAB.drafts[id] = ''; CAB.att[id] = []; }
+    else {
+      const type = x.status === 'question' ? 'answer' : !x.version ? 'note' : 'comment';
+      x.status = type === 'answer' ? (x.version ? 'feedback' : 'new') : type === 'comment' ? 'feedback' : (x.status === 'error' ? 'new' : x.status);
+      x.events.push({at, who, type, v:x.version, text, files:att.map(f=>f.name)}); CAB.drafts[id] = ''; CAB.att[id] = [];
+    }
     x.updated = at;
     toast(accept ? t('accOk') : t('sentOk'));
     if (!isDemo()) cabLoad(true);
   } catch(err){ btns.forEach(b=>b.disabled=false); toast(t('loadErr')); }
 }
 
-function updateCabBtn(){
-  const b = $('#cabBtn'); if (!b) return;
-  b.hidden = !hasCab(); b.textContent = t('cabBtn'); b.classList.toggle('on', view==='cab');
-  const n = (CAB.jobs||[]).filter(x=>ACTION.includes(x.status)).length;
-  b.dataset.n = n || '';
-}
+function updateCabBtn(){ renderTabs(); }
 
 function cabClick(b, e){
   const act = b.dataset.act;
   if (act==='cab'){ openCab(); return true; }
+  if (act==='openJob'){ openCab(b.dataset.job); return true; }
   if (b.dataset.cf){ CAB.filter = b.dataset.cf; renderCab(true); return true; }
-  if (b.dataset.job && !act){ CAB.sel = b.dataset.job; setHash('#cab/'+CAB.sel); renderCab(); if (innerWidth < 900) window.scrollTo(0,0); return true; }
-  if (act==='cabBack'){ CAB.sel = null; setHash('#cab'); renderCab(); return true; }
-  if (act==='cabNew'){ leaveCab(); S = { lang:S.lang, mode:null, step:0, a:{}, maxStep:0 }; for (const k in FILES) delete FILES[k]; store.del(); view='intro'; render(); window.scrollTo(0,0); return true; }
+  if (b.dataset.job && !act){ CAB.sel = b.dataset.job; renderCab(); syncHistory(); if (innerWidth < 900) window.scrollTo(0,0); return true; }
+  if (act==='cabBack'){ if (history.state && history.state.v==='cab' && history.state.sel){ history.back(); return true; } CAB.sel = null; renderCab(); syncHistory(); return true; }
+  if (act==='cabNew'){ leaveCab(); view='intro'; render(); window.scrollTo(0,0); return true; }
   if (act==='cabDl'){ cabDownload(b); return true; }
   if (act==='cabSend'){ cabSend(b.dataset.job, false); return true; }
   if (act==='cabAccept'){ cabSend(b.dataset.job, true); return true; }
   if (act==='cabRm'){ (CAB.att[CAB.sel]||[]).splice(+b.dataset.i,1); renderCab(true); return true; }
   if (act==='cabLogin'){ e.preventDefault(); const v = ($('#cabKey')||{}).value||''; if (v.trim()){ KEYV = v.trim(); kstore.set(KEYV); CAB.err=''; CAB.jobs=null; cabLoad(); } return true; }
-  if (act==='cabLogout'){ KEYV=''; kstore.set(''); CAB.jobs=null; CAB.sel=null; renderCab(); return true; }
+  if (act==='cabLogout'){ KEYV=''; kstore.set(''); nstore.set(''); CAB.name=''; CAB.jobs=null; CAB.sel=null; leaveCab(); view='pin'; render(); return true; }
+  if (act==='tgLink'){ tgLink(b); return true; }
+  if (act==='notifOn'){ try { Notification.requestPermission().then(() => { if (view === 'me') render(); else { b.textContent = t(ntState() === 'granted' ? 'ntDone' : 'nt_' + ntState()); b.disabled = true; } }); } catch(x){} return true; }
   return false;
 }
-document.addEventListener('input', e => { if (e.target.id==='cabText'){ CAB.drafts[e.target.dataset.job] = e.target.value; e.target.classList.remove('bad'); } }, true);
+document.addEventListener('input', e => { if (e.target.id==='cabText'){ CAB.drafts[e.target.dataset.job] = e.target.value; e.target.classList.remove('bad'); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px'; } }, true);
+document.addEventListener('keydown', e => { if (e.target.id==='cabText' && e.key==='Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); cabSend(e.target.dataset.job, false); } }, true);
 document.addEventListener('change', e => { if (e.target.id==='cabFile'){ const id = CAB.sel; CAB.att[id] = (CAB.att[id]||[]).concat(Array.from(e.target.files||[])); renderCab(true); } }, true);
 document.addEventListener('submit', e => { if (e.target.closest('.login')) e.preventDefault(); });
-window.addEventListener('hashchange', () => { const m = location.hash.match(/^#cab(?:\/(.+))?$/); if (m && hasCab()) openCab(m[1] ? decodeURIComponent(m[1]) : null); });
+window.addEventListener('hashchange', () => { const m = location.hash.match(/^#cab(?:\/(.+))?$/); if (m && hasCab()) openCab(m[1] ? decodeURIComponent(m[1]) : null); else if (location.hash === '#me' && hasCab()){ leaveCab(); view = 'me'; render(); } });
+
+/* ---------- уведомления, пока сайт открыт: число в названии вкладки и всплывающее уведомление ---------- */
+const PULSE = { sig:'', busy:false };
+const sigAll = js => js.map(x => x.id + ':' + x.status + ':' + (x.version||0) + ':' + (x.e||0)).sort().join('|');
+const ntState = () => { try { return typeof Notification === 'undefined' ? 'none' : Notification.permission; } catch(e){ return 'none'; } };
+function updateTitle(){ const n = (CAB.jobs || []).filter(x => ACTION.includes(x.status)).length; document.title = (n ? '(' + n + ') ' : '') + 'TestFit'; }
+// Новые «ждут вас» (вопрос Claude, готовый результат) → уведомление, если вкладка не на экране. Уже показанные помним.
+function watchNew(){
+  const act = (CAB.jobs || []).filter(x => ACTION.includes(x.status)), sk = 'pridex-seen-' + (KEYV || '').slice(0, 6);
+  let seen = null; try { seen = JSON.parse(localStorage.getItem(sk) || 'null'); } catch(e){}
+  const now = act.map(x => x.id + ':' + x.status + ':' + (x.version||0));
+  if (seen) act.filter(x => !seen.includes(x.id + ':' + x.status + ':' + (x.version||0))).forEach(x => {
+    if (ntState() !== 'granted' || (!document.hidden && document.hasFocus())) return;
+    try {
+      const n = new Notification('TestFit · ' + (x.status === 'question' ? t('ntQ') : t('ntR') + (x.version ? ' · v' + x.version : '')), { body: x.id + ' · ' + (x.title || x.object || ''), tag: x.id + ':' + x.status });
+      n.onclick = () => { try { window.focus(); } catch(e){} openCab(x.id); n.close(); };
+    } catch(e){}
+  });
+  try { localStorage.setItem(sk, JSON.stringify(now)); } catch(e){}
+}
+async function pulse(){
+  if (!KEYV || isDemo() || PULSE.busy || needPin()) return;
+  PULSE.busy = true;
+  try { const r = await post({ action:'pulse', key:KEYV }); if (sigAll(r.jobs) !== PULSE.sig) await cabLoad(true); }
+  catch(e){} finally { PULSE.busy = false; }
+}
+setInterval(pulse, 45000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pulse(); });
 
 /* ---------- boot ---------- */
 if (S.mode && saved && Object.keys(S.a).length) view = 'intro';
-{ const m = location.hash.match(/^#cab(?:\/(.+))?$/); if (m && hasCab()){ if (m[1]) CAB.sel = decodeURIComponent(m[1]); view = 'cab'; } }
+{ const m = location.hash.match(/^#cab(?:\/(.+))?$/); if (m && hasCab()){ if (m[1]) CAB.sel = decodeURIComponent(m[1]); view = 'cab'; } else if (location.hash === '#me' && hasCab()) view = 'me'; }
 render();
 if (view === 'cab') openCab(CAB.sel);
+else if (KEYV || isDemo()) cabLoad(true);
 })();
